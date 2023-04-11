@@ -1,29 +1,32 @@
 class Entity(object):
-    def __init__(self, template):
-        self.Name = template["Name"]
-        self.EntityType = template["EntityType"]
-        self.Job = template["Job"]
-        self.Level = template["Level"]
-        self.MaxHP = template["Max HP"]
-        self.MaxMP = template["Max MP"]
-        self.STR = template["STR"]
-        self.RES = template["RES"]
-        self.MND = template["MND"]
-        self.AGI = template["AGI"]
-        self.MP = template["HP"]
-        self.HP = template["MP"]
-        self.Abilities = template["Abilities"]
-        self.__items = {}
+    def __init__(self, entity_template):
+        self.Name = entity_template["Name"]
+        self.EntityType = entity_template["EntityType"]
+        self.Job = entity_template["Job"]
+        self.Level = entity_template["Level"]
+        self.MaxHP = entity_template["Max HP"]
+        self.MaxMP = entity_template["Max MP"]
+        self.STR = entity_template["STR"]
+        self.RES = entity_template["RES"]
+        self.MND = entity_template["MND"]
+        self.AGI = entity_template["AGI"]
+        self.MP = entity_template["HP"]
+        self.HP = entity_template["MP"]
+        self.Abilities = entity_template["Abilities"]
+        self.EntityId = entity_template["EntityID"] if "EntityID" in entity_template else "pc"
 
-    def __getitem__(self, item):
-        return self.__items.get(item)
+    def __repr__(self):
+        return f'{self.Name} [STR: {self.STR} RES: {self.RES} MND: {self.MND} AGI: {self.AGI}]'
+
+    def my_cool_method(self, last_name, middle_name):
+        return self.Name + middle_name + last_name
 
 
 entities = {
-    "Billie": {
+    "Billie": Entity({
         "Name": "Billie",
         "EntityType": "PlayerCharacter",
-        "Job": "warrior",
+        "Job": "mage",
         "Level": 1,
         "Max HP": 10,
         "Max MP": 2,
@@ -43,9 +46,10 @@ entities = {
                 "abilityType": "NOT_OFFENSIVE"
             },
         }
-    },
-    "EnemyWizard": {
-        "Name": "Enranged Wizard",
+    }),
+    "EnemyWizard": Entity({
+        # Basic things that should be easy to call like name, id, and stats
+        "Name": "Enraged Wizard",
         "EntityType": "Enemy",
         "EntityID": "ENEMY_1",
         "Job": "mage",
@@ -59,10 +63,10 @@ entities = {
         "HP": 4,
         "MP": 11,
         "Abilities": {
-            "Fireball": "FORFIREBALL"
+            "Fireball": "forfireball"
         }
-    },
-    "EnemyWarrior": {
+    }),
+    "EnemyWarrior": Entity({
         "Name": "Stalwart Warrior",
         "EntityType": "Enemy",
         "EntityID": "ENEMY_2",
@@ -79,49 +83,51 @@ entities = {
         "Abilities": {
             "Skull Crusher": "SkullCrusher"
         }
-    }
+    })
 }
 
+entities_by_id = {entities[e].EntityId: entities[e] for e in entities}
 
-def find_turn_order(entityList):
-    list_item_num = 0
-
-    # make a new list where each dict is turned to an object
-    old_list = entityList
-    for _ in range(len(entityList)):
-        entity_name = entityList[list_item_num]["Name"]
-        # "Billie"
-        # Billie.Name
-        print(entity_name)
-        entity_name = Entity(entityList[list_item_num])
-        print(entity_name.Name)
-        entityList.append(entity_name)
-        list_item_num += 1
-
-    # make sure the dicts are out of the list
-    for _ in range(0, list_item_num):
-        entityList.remove(entityList[0])
-    list_item_num = 0
-
-    # sort the object list
-    object_list = sorted(entityList, key=lambda x: x.AGI, reverse=True)
-
-    # replace the objects with their former dict selves
-    for _ in range(len(object_list)):
-        other_list_item_num = 0
-        print()
-        for __ in range(len(old_list)):
-            print(object_list[list_item_num].Name)
-            print(old_list[other_list_item_num]["Name"])
-            if object_list[list_item_num].Name == old_list[other_list_item_num]["Name"]:
-                object_list[list_item_num] = old_list[other_list_item_num]
-                print("PASSED THE DICT CHECK!")
-            other_list_item_num += 1
-        list_item_num += 1
-
-    # thus sorting a list of dicts by a shared key
-    print(object_list)
-    return object_list
+def find_turn_order(entity_list: list[Entity]) -> list[Entity]:
+    return sorted(entity_list, key=lambda x: x.AGI, reverse=True)
+    # list_item_num = 0
+    #
+    # # make a new list where each dict is turned to an object
+    # old_list = entity_list
+    # for _ in range(len(entity_list)):
+    #     entity_name = entity_list[list_item_num]["Name"]
+    #     # "Billie"
+    #     # Billie.Name
+    #     print(entity_name)
+    #     entity_name = Entity(entity_list[list_item_num])
+    #     print(entity_name.Name)
+    #     entity_list.append(entity_name)
+    #     list_item_num += 1
+    #
+    # # make sure the dicts are out of the list
+    # for _ in range(0, list_item_num):
+    #     entity_list.remove(entity_list[0])
+    # list_item_num = 0
+    #
+    # # sort the object list
+    # object_list = sorted(entity_list, key=lambda x: x.AGI, reverse=True)
+    #
+    # # replace the objects with their former dict selves
+    # for _ in range(len(object_list)):
+    #     other_list_item_num = 0
+    #     print()
+    #     for __ in range(len(old_list)):
+    #         print(object_list[list_item_num].Name)
+    #         print(old_list[other_list_item_num]["Name"])
+    #         if object_list[list_item_num].Name == old_list[other_list_item_num]["Name"]:
+    #             object_list[list_item_num] = old_list[other_list_item_num]
+    #             print("PASSED THE DICT CHECK!")
+    #         other_list_item_num += 1
+    #     list_item_num += 1
+    #
+    # # thus sorting a list of dicts by a shared key
+    # print(object_list)
+    # return object_list
 
 
 ###

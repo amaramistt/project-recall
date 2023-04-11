@@ -9,7 +9,9 @@
 
 import os
 import random
-from entity import Entity, find_turn_order
+from entity import entities, entities_by_id, Entity, find_turn_order
+
+CLEAR_COMMAND = 'cls' if os.name == 'nt' else 'clear'
 
 stats_order = {
     # required to let levelUp() or any function like it work at all
@@ -19,70 +21,6 @@ stats_order = {
     4: "RES",
     5: "MND",
     6: "AGI"
-}
-
-entities = {
-    "Billie": Entity({
-        "Name": "Billie",
-        "EntityType": "PlayerCharacter",
-        "Job": "mage",
-        "Level": 1,
-        "Max HP": 10,
-        "Max MP": 2,
-        "STR": 9,
-        "RES": 11,
-        "MND": 3,
-        "AGI": 3,
-        "HP": 10,
-        "MP": 2,
-        "Abilities": {
-            "SkullCrusher": {
-                "abilityFunc": "SkullCrusher",
-                "abilityType": "OFFENSIVE"
-            },
-            "Focus": {
-                "abilityFunc": "Focus",
-                "abilityType": "NOT_OFFENSIVE"
-            },
-        }
-    }),
-    "EnemyWizard": Entity({
-        # Basic things that should be easy to call like name, id, and stats
-        "Name": "Enraged Wizard",
-        "EntityType": "Enemy",
-        "EntityID": "ENEMY_1",
-        "Job": "mage",
-        "Level": 1,
-        "Max HP": 4,
-        "Max MP": 11,
-        "STR": 3,
-        "RES": 3,
-        "MND": 12,
-        "AGI": 6,
-        "HP": 4,
-        "MP": 11,
-        "Abilities": {
-            "Fireball": "forfireball"
-        }
-    }),
-    "EnemyWarrior": Entity({
-        "Name": "Stalwart Warrior",
-        "EntityType": "Enemy",
-        "EntityID": "ENEMY_2",
-        "Job": "warrior",
-        "Level": 1,
-        "Max HP": 10,
-        "Max MP": 2,
-        "STR": 10,
-        "RES": 12,
-        "MND": 3,
-        "AGI": 4,
-        "HP": 10,
-        "MP": 2,
-        "Abilities": {
-            "Skull Crusher": "SkullCrusher"
-        }
-    })
 }
 
 # JOB STATS SYNTAX
@@ -143,47 +81,52 @@ def level_up(character):
     print("New stats:", character, "\n")
 
 
-def initiate_battle(player_party):
-    enemies_to_spawn = random.randrange(1, 3)
-    enemies_rolled = []
-    for _ in range(0, enemies_to_spawn):
-        enemy_spawned = f"ENEMY_{random.randrange(1, 3)}"
-        enemies_rolled.append(enemy_spawned)
+def initiate_battle(player_party: list[Entity]):
+    enemies_rolled = [entities_by_id[f'ENEMY_{random.randrange(1, 3)}'] for _ in range(random.randrange(1, 3))]
+
     print(enemies_rolled)
     take_turn(player_party, enemies_rolled)
 
 
-def find_target(amount_of_enemies):
-    target = int(input("Which numbered enemy would you like to attack?"))
-    target -= 1
-    if target > 0:
-        target = 0
-    elif target > amount_of_enemies:
-        target = amount_of_enemies - 1
-    return target
+def select_target(max_targets):
+    target = int(input("Which numbered enemy would you like to attack?")) - 1
+    return 0 if target < 0 else max_targets - 1 if target >= max_targets else target
 
 
-def take_turn(character, enemy):
-    turn_order = find_turn_order([character, enemy])
-    os.system('cls' if os.name == 'nt' else 'clear')
-    first_entity = turn_order[0]
+def process_player_input(pc: Entity):
+    pass
+
+
+def take_turn(character: list[Entity], enemy: list[Entity]):
+    actors = find_turn_order(character + enemy)
+    os.system(CLEAR_COMMAND)
+
+    for actor in actors:
+        print(f"It's {actor.Name}'s turn!")
+
+        if actor.EntityType == "PlayerCharacter":
+            process_player_input(actor)
+
+
+
+    first_entity = actors[0]
     target = None
 
     # Start of the first entity's turn
-    print(f"It's {turn_order[0]['Name']}'s turn!")
+    print(f"It's {actors[0]['Name']}'s turn!")
     # Check whether the first entity is a PC
-    if turn_order[0]["EntityType"] == "PlayerCharacter":
-        cmd = input('Command? ')
+    if actors[0]["EntityType"] == "PlayerCharacter":
+        cmd = input('Command? ').strip().lower()
         # Ask for and deal with command
-        if cmd.lower() == "attack":
+        if cmd == "attack":
             # find the target of melee
-            target = find_target(len(enemy))
+            target = select_target(len(enemy))
             # deal damage to it
             damage = damage_calc(character, enemy[target], False)
             input(f"You attack the enemy with your weapon, dealing {damage} damage!")
             enemy[target]["HP"] -= damage
             # remove first entity from turn order
-            turn_order.remove(turn_order[0])
+            actors.remove(actors[0])
 
         elif cmd.lower() == "magic":
             if len(character["Abilities"]) >= 1:
@@ -194,41 +137,41 @@ def take_turn(character, enemy):
                     if character["Abilities"][chosen_ability]["abilityType"] == "NOT_OFFENSIVE":
                         use_ability(character)
                     elif character["Abilities"][chosen_ability]["abilityType"] == "OFFENSIVE":
-                        target = find_target(len(enemy))
+                        target = select_target(len(enemy))
                         damage = use_ability(character, enemy[target])
                         input(f"You deal {damage} damage!")
                         enemy[target]["HP"] -= damage
-                        turn_order.remove(turn_order[0])
+                        actors.remove(actors[0])
                 else:
                     input("That is not an available ability!")
-                    take_turn(character, enemy)
+                    # take_turn(character, enemy)
             else:
                 input("you don't have an ability dummy")
-                take_turn(character, enemy)
+                # take_turn(character, enemy)
 
         if enemy[target]["HP"] <= 0:
-            turn_order.remove(enemy[target])
+            actors.remove(enemy[target])
             enemy.remove(enemy[target])
         else:
             input("fuck you")
-            take_turn(character, enemy)
+            # take_turn(character, enemy)
 
-    if turn_order[0]["EntityType"] == "Enemy":
+    if actors[0]["EntityType"] == "Enemy":
         enemy_target = random.randrange(0, len(character))
-        if turn_order[0]["STR"] > turn_order[0]["MND"]:
-            enemy_damage = damage_calc(turn_order[0], character[enemy_target], False)
+        if actors[0]["STR"] > actors[0]["MND"]:
+            enemy_damage = damage_calc(actors[0], character[enemy_target], False)
             input(f"The enemy attacks with their weapon and deals {enemy_damage} damage!")
         else:
-            enemy_damage = damage_calc(turn_order[0], character[enemy_target], True)
+            enemy_damage = damage_calc(actors[0], character[enemy_target], True)
             input(f"The enemy casts a spell and deals {enemy_damage} damage!")
         character[enemy_target]["HP"] -= enemy_damage
         if character[enemy_target]["HP"] <= 0:
             input(f"{character[enemy_target]['Name']} Has Fallen!")
-            turn_order.remove(character[enemy_target])
+            actors.remove(character[enemy_target])
             character.remove(character[enemy_target])
 
     # After the turn
-    if first_entity != turn_order[0]:
+    if first_entity != actors[0]:
         # check if there's no more enemies
         if len(enemy) == 0:
             # cleanup
