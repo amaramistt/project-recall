@@ -1,10 +1,12 @@
 # To-Do List
-# 1) Create a separate file with classes so that findTurnOrder, initiateBattle, and takeTurn function as intended
-# 2) Start reworking takeTurn() to make it more concise and fun to use
-# 3) Rework magic in so that non-damaging spells may be used in the same way
-# 4) Create a system where I can create spell functions (a la SkullCracker()) in a different file and import
+# 1) Finishing touches on find_turn_order() my BEHATED.
+# 2) Create a system where I can create spell functions (a la SkullCracker()) in a different file and import
 #    them for use without too much rewriting of code
-# 5) Start using pygame/libtcod and working on room generation and battle UI
+# 3) Create a system in which the player may exist outside of battle, so that items/equipment/accessories/menuing
+#    may be implimented and debugged
+# 4) Create a system in which passive, consumable, and non-consumable items can be seamlessly acquired and used,
+#    preferably complete with item pools and broken synergies :3
+# FAR IN THE FUTURE) Start using pygame/libtcod and work on room generation and battle UI
 
 
 import os
@@ -104,8 +106,13 @@ jobs = {
 # 2 -> 8-10
 # 3 -> 12-15
 # 4 -> 16-20
-def roll_stat(modifier: int):
-    return (modifier * 4) + random.randrange(0, modifier+1)
+def roll_stat(modifier: int, start: bool):
+    #start is true if it's the first level, used in gen_starting_stats
+    #start is false if it's being used anywhere else, like in level_up
+    if start == True:
+        return (modifier * 4) + random.randrange(0, modifier+1)
+    if start == False:
+        return modifier + random.randrange(modifier, modifier+4)
 
 
 def gen_starting_stats(character: Entity):
@@ -117,11 +124,12 @@ def gen_starting_stats(character: Entity):
     character.Level = 1
     char_job = jobs[character.Job]
 
-    character.STR = roll_stat(char_job[2])
-    character.RES = roll_stat(char_job[3])
-    character.MND = roll_stat(char_job[4])
-    character.AGI = roll_stat(char_job[5])
-
+    character.MaxHP = roll_stat(char_job[0], True)
+    character.MaxMP = roll_stat(char_job[1], True)
+    character.STR = roll_stat(char_job[2], True)
+    character.RES = roll_stat(char_job[3], True)
+    character.MND = roll_stat(char_job[4], True)
+    character.AGI = roll_stat(char_job[5], True)
     character.HP = character.MaxHP
     character.MP = character.MaxMP
     pass
@@ -129,17 +137,17 @@ def gen_starting_stats(character: Entity):
 
 def level_up(character):
     global jobs, stats_order
-
-    print(f"{character['Name']} Leveled Up!")
-    job_stat = 0
-    sheet_stat = 1
-    while sheet_stat <= 6:
-        character["HP"] = character["Max HP"]
-        character["MP"] = character["Max MP"]
-        lvl_up_stat = random.randrange((jobs[character["Job"]][job_stat]), (jobs[character["Job"]][job_stat] + 5))
-        character[stats_order[sheet_stat]] = character[stats_order[sheet_stat]] + lvl_up_stat
-        job_stat += 1
-        sheet_stat += 1
+    
+    char_job = jobs[character.Job]
+    print(f"{character.Name} Leveled Up!")
+    character.MaxHP += roll_stat(char_job[0], False)
+    character.MaxMP += roll_stat(char_job[1], False)
+    character.STR += roll_stat(char_job[2], False)
+    character.RES += roll_stat(char_job[3], False)
+    character.MND += roll_stat(char_job[4], False)
+    character.AGI += roll_stat(char_job[5], False)
+    character.HP = character.MaxHP
+    character.MP = character.MaxMP
     print("New stats:", character, "\n")
 
 
@@ -163,77 +171,99 @@ def find_target(amount_of_enemies):
     return target
 
 
-def take_turn(character, enemy):
+def take_turn(character: list[Entity], enemy: list[Entity]):
     turn_order = find_turn_order([character, enemy])
     os.system('cls' if os.name == 'nt' else 'clear')
-    first_entity = turn_order[0]
     target = None
 
-    # Start of the first entity's turn
-    print(f"It's {turn_order[0]['Name']}'s turn!")
-    # Check whether the first entity is a PC
-    if turn_order[0]["EntityType"] == "PlayerCharacter":
-        cmd = input('Command? ')
-        # Ask for and deal with command
-        if cmd.lower() == "attack":
-            # find the target of melee
-            target = find_target(len(enemy))
-            # deal damage to it
-            damage = damage_calc(character, enemy[target], False)
-            input(f"You attack the enemy with your weapon, dealing {damage} damage!")
-            enemy[target]["HP"] -= damage
-            # remove first entity from turn order
-            turn_order.remove(turn_order[0])
-
-        elif cmd.lower() == "magic":
-            if len(character["Abilities"]) >= 1:
-                print("Your available abilities:", character["Abilities"].keys())
-                chosen_ability = input("Which ability do you choose?")
-                use_ability = globals()[character["Abilities"][chosen_ability]["abilityFunc"]]
-                if chosen_ability in character["Abilities"]:
-                    if character["Abilities"][chosen_ability]["abilityType"] == "NOT_OFFENSIVE":
-                        use_ability(character)
-                    elif character["Abilities"][chosen_ability]["abilityType"] == "OFFENSIVE":
-                        target = find_target(len(enemy))
-                        damage = use_ability(character, enemy[target])
-                        input(f"You deal {damage} damage!")
-                        enemy[target]["HP"] -= damage
-                        turn_order.remove(turn_order[0])
-                else:
-                    input("That is not an available ability!")
-                    take_turn(character, enemy)
+    #go through this process for every entity and provide a more concise way to refer to the entity taking the turn
+    for entity in turn_order:    
+        # Start of the first entity's turn
+        print(f"It's {entity['Name']}'s turn!")
+        # Check whether the first entity is a PC
+        if entity["EntityType"] == "PlayerCharacter":
+            #do PC shit
+            pc_turn_handler(entity,enemy,turn_order)
+            
+    
+        #check whether or not the first entity is an enemy
+        if entity["EntityType"] == "Enemy":
+            #find a random target (advanced targeting will be developed later most likely (make this all just a more complex function))
+            enemy_target = random.randrange(0, len(character))
+            #check if its mind is higher than its strength and use the higher stat in the damage calc
+            if entity["STR"] > entity["MND"]:
+                enemy_damage = damage_calc(entity, character[enemy_target], False)
+                input(f"The enemy attacks with their weapon and deals {enemy_damage} damage!")
             else:
-                input("you don't have an ability dummy")
-                take_turn(character, enemy)
+                enemy_damage = damage_calc(entity, character[enemy_target], True)
+                input(f"The enemy casts a spell and deals {enemy_damage} damage!")
+            #deal damage
+            character[enemy_target]["HP"] -= enemy_damage
+            #check if the character died
+            if character[enemy_target]["HP"] <= 0:
+                #kill them
+                input(f"{character[enemy_target]['Name']} Has Fallen!")
+                turn_order.remove(character[enemy_target])
+                character.remove(character[enemy_target])
+        
 
-        if enemy[target]["HP"] <= 0:
+
+def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity]):
+    cmd = input("Command?\n").strip().lower()
+    if cmd == "attack":
+        # find the target of melee
+        target = find_target(len(enemy))
+        # deal damage to it
+        damage = damage_calc(character, enemy[target], False)
+        input(f"You attack the enemy with your weapon, dealing {damage} damage!")
+        enemy[target]["HP"] -= damage
+        if enemy[target["HP"]] <= 0:
+            input(f"{enemy[target]['Name']} has fallen!")
             turn_order.remove(enemy[target])
             enemy.remove(enemy[target])
+    elif cmd == "ability":
+        ability_handler(character,enemy,turn_order)
+    else:
+        input("Invalid command!")
+        pc_turn_handler(character,enemy,turn_order)
+        return None
+    if enemy[target]["HP"] <= 0:
+        turn_order.remove(enemy[target])
+        enemy.remove(enemy[target])
+
+def ability_handler(character: list[Entity], enemy: list[Entity], turn_order: list[Entity]):
+    #check if you have an abiltiy
+    if len(character["Abilities"]) >= 1:
+        #print the abilities and let you choose one
+        print("Your available abilities:", character["Abilities"].keys())
+        chosen_ability = input("Which ability do you choose?")
+        use_ability = globals()[character["Abilities"][chosen_ability]["abilityFunc"]]
+        #check if the input is an ability you have
+        if chosen_ability in character["Abilities"]:
+            #if it's not an offensive ability, just do the function as any damage calcs involved will be in the corresponding function
+            if character["Abilities"][chosen_ability]["abilityType"] == "NOT_OFFENSIVE":
+                #!!!CRITICAL REMINDER!!!
+                #SINCE THE ABILITY HANDLER DOESN'T CHECK IF ANYTHING DIED, THE ABILITY FUNCTION HAS TO DEAL WITH IT
+                #THIS ONLY MATTERS IF THE ABILITY TYPE IS NOT_OFFENSIVE BUT STILL DEALS DAMAGE
+                #!!!CRITICAL REMINDER!!!
+                use_ability(character)
+            #if it is an offensive ability, use it as a glorified damage calc
+            elif character["Abilities"][chosen_ability]["abilityType"] == "OFFENSIVE":
+                target = find_target(len(enemy))
+                damage = use_ability(character, enemy[target])
+                input(f"You deal {damage} damage!")
+                enemy[target]["HP"] -= damage
+                turn_order.remove(entity)
+        #if the input isn't something you have, give an error
         else:
-            input("fuck you")
-            take_turn(character, enemy)
-
-    if turn_order[0]["EntityType"] == "Enemy":
-        enemy_target = random.randrange(0, len(character))
-        if turn_order[0]["STR"] > turn_order[0]["MND"]:
-            enemy_damage = damage_calc(turn_order[0], character[enemy_target], False)
-            input(f"The enemy attacks with their weapon and deals {enemy_damage} damage!")
-        else:
-            enemy_damage = damage_calc(turn_order[0], character[enemy_target], True)
-            input(f"The enemy casts a spell and deals {enemy_damage} damage!")
-        character[enemy_target]["HP"] -= enemy_damage
-        if character[enemy_target]["HP"] <= 0:
-            input(f"{character[enemy_target]['Name']} Has Fallen!")
-            turn_order.remove(character[enemy_target])
-            character.remove(character[enemy_target])
-
-    # After the turn
-    if first_entity != turn_order[0]:
-        # check if there's no more enemies
-        if len(enemy) == 0:
-            # cleanup
-            battle_cleanup(character, enemy, 10, 12)
-
+            input("That is not an available ability!")
+            pc_turn_handler(character, enemy, turn_order)
+            return None
+    #if you don't have an ability, don't let them do anything
+    else:
+        input("you don't have an ability dummy")
+        pc_turn_handler(character, enemy, turn_order)
+###
 
 def damage_calc(attacker, defender, magic):
     critical = 2 if random.uniform(0, 1) >= 0.95 else 1
@@ -247,7 +277,7 @@ def damage_calc(attacker, defender, magic):
             int(
                 # randomize damage (+/- 10%)
                 random.uniform(0.9, 1.1) *
-                (attacker["STR"] - (defender["RES"] * 0.5) * critical)
+                (attacker.STR - (defender.RES * 0.5) * critical)
             ))
         if damage >= 0:
             return damage
@@ -256,7 +286,7 @@ def damage_calc(attacker, defender, magic):
 
     elif magic:
         damage = int(random.uniform(0.9, 1.1) *
-                     (attacker["MND"] - (defender["RES"] * 0.3) * critical))
+                     (attacker.MND - (defender.RES * 0.3) * critical))
         if damage >= 0:
             return damage
         else:
@@ -266,68 +296,70 @@ def damage_calc(attacker, defender, magic):
         return 0
 
 
-def battle_cleanup(character, enemy, exp, gold):
-    if character["HP"] > 0:
-        print("B A T T L E  W O N !")
-        print(f"You defeated {enemy.name}!")
-        print(f"You got {exp} experience points!")
-        input(f"You got {gold} gold pieces!")
-        return True
-    elif character["HP"] <= 0:
-        print("Y O U  D I E D")
-        input(" game over...")
-        return False
+#\/\/ Probably needs a rework \/\/
+# def battle_cleanup(character, enemy, exp, gold):
+#     if character["HP"] > 0:
+#         print("B A T T L E  W O N !")
+#         print(f"You defeated {enemy.Name}!")
+#         print(f"You got {exp} experience points!")
+#         input(f"You got {gold} gold pieces!")
+#         return True
+#     elif character["HP"] <= 0:
+#         print("Y O U  D I E D")
+#         input(" game over...")
+#         return False
 
 
 def skull_crusher(attacker, defender):
-    if attacker["MP"] < 3:
-        input(f"{attacker['Name']} didn't have enough MP to use Skull Crusher!")
+    if attacker.MP < 3:
+        input(f"{attacker.Name} didn't have enough MP to use Skull Crusher!")
         return 0
-    input(f"{attacker['Name']} uses Skull Crusher!")
-    attacker["MP"] -= 3
+    input(f"{attacker.Name} uses Skull Crusher!")
+    attacker.MP -= 3
     input("They siphon 3 points of MP!")
-    defense_ignored = int(defender["RES"] * 0.8)
-    defender["RES"] -= defense_ignored
-    input(f"{attacker['Name']} slams their weapon onto {defender['Name']}'s head with a horrifying CRACK!")
+    defense_ignored = int(defender.RES * 0.8)
+    defender.RES -= defense_ignored
+    input(f"{attacker.Name} slams their weapon onto {defender.Name}'s head with a horrifying CRACK!")
     damage = damage_calc(attacker, defender, False)
-    defender["RES"] += defense_ignored
+    defender.RES += defense_ignored
     return int(damage)
 
 
 def forfireball(attacker, defender):
-    if attacker["MP"] < 40:
+    if attacker.MP < 40:
         return 0
     else:
-        attacker["MP"] -= 40
-        input("")
-        defense_ignored = int(defender["RES"] * 0.5)
-        defender["RES"] -= defense_ignored
+        attacker.MP -= 40
+        input(f"{attacker.Name} casts Fireball!")
+        defense_ignored = defender.RES
+        defender.RES -= defense_ignored
+        input("Even the most powerful armor shatters when the shockwave hits it!")
         damage = damage_calc(attacker, defender, True) * 2
-        defender["RES"] += defense_ignored
+        defender.RES += defense_ignored
         return damage
 
 
 def focus(user):
-    mind_multiple = (user["MND"] * 0.05) + 1
+    mind_multiple = (user.MND * 0.05) + 1
     if mind_multiple > 5:
         mind_multiple = 5
-    if user["MP"] < 5:
-        input(f"{user['Name']} tried to use Focus, but they didn't have enough MP!")
+    if user.MP < 5:
+        input(f"{user.Name} tried to use Focus, but they didn't have enough MP!")
         return None
     else:
-        input(f"{user['Name']} used Focus!")
+        input(f"{user.Name} used Focus!")
         input("They take a deep breath and center their thoughts...")
         input("They feel better already!")
-        health_to_heal = int(user["Max HP"] * 0.1 + (random.randrange(10, 15) * mind_multiple))
-        if (health_to_heal + user["HP"]) > user["Max HP"]:
-            health_to_heal = user["Max HP"] - user["HP"]
-        input(f"{user['Name']} heals {health_to_heal} HP!")
-        user["HP"] += health_to_heal
+        health_to_heal = int(user.MaxHP * 0.1 + (random.randrange(10, 15) * mind_multiple))
+        if (health_to_heal + user.HP) > user.MaxHP:
+            health_to_heal = user.MaxHP - user.HP
+        input(f"{user.Name} heals {health_to_heal} HP!")
+        user.HP += health_to_heal
         input("They gain a boost to Mind!")
-        mind_to_gain = int(user["MND"] * 0.1)
+        mind_to_gain = int(user.MND * 0.1)
         if mind_to_gain == 0:
             mind_to_gain = 1
-        user["MND"] += mind_to_gain
+        user.MND += mind_to_gain
 
 
 def main():
@@ -340,11 +372,14 @@ def main():
     for _ in range(10):
         level_up(entities["EnemyWarrior"])
 
-    entities["Billie"]["HP"] -= damage_calc(entities["EnemyWizard"], entities["Billie"], True)
-    input(f"{entities['Billie']['HP']}")
+    entities["Billie"].HP -= damage_calc(entities["EnemyWizard"], entities["Billie"], True)
+    input(f"{entities['Billie'].HP}")
     focus(entities["Billie"])
-    input(f"{entities['Billie']['HP']}")
-    # findTurnOrder([entities["Billie"], [entities["EnemyWizard"], entities["EnemyWarrior"]]])
+    input(f"{entities['Billie'].HP}")
+    turn_order = find_turn_order([entities["Billie"], [entities["EnemyWizard"], entities["EnemyWarrior"]]])
+    for entity in turn_order:
+        print(entity.Name)
+
     # initiateBattle([entities["Billie"]])
     print(skull_crusher(entities["Billie"], entities["EnemyWizard"]))
     print(forfireball(entities["EnemyWizard"], entities["Billie"]))

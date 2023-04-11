@@ -15,12 +15,14 @@ class Entity(object):
         self.Abilities = template["Abilities"]
         self.__items = {}
 
-    def __getitem__(self, item):
-        return self.__items.get(item)
+    def __repr__(self):
+        return f'{self.Name} [STR: {self.STR} RES: {self.RES} MND: {self.MND} AGI: {self.AGI}]'
+
+
 
 
 entities = {
-    "Billie": {
+    "Billie": Entity({
         "Name": "Billie",
         "EntityType": "PlayerCharacter",
         "Job": "warrior",
@@ -43,8 +45,8 @@ entities = {
                 "abilityType": "NOT_OFFENSIVE"
             },
         }
-    },
-    "EnemyWizard": {
+    }),
+    "EnemyWizard": Entity({
         "Name": "Enranged Wizard",
         "EntityType": "Enemy",
         "EntityID": "ENEMY_1",
@@ -61,8 +63,8 @@ entities = {
         "Abilities": {
             "Fireball": "FORFIREBALL"
         }
-    },
-    "EnemyWarrior": {
+    }),
+    "EnemyWarrior": Entity({
         "Name": "Stalwart Warrior",
         "EntityType": "Enemy",
         "EntityID": "ENEMY_2",
@@ -79,70 +81,18 @@ entities = {
         "Abilities": {
             "Skull Crusher": "SkullCrusher"
         }
-    }
+    })
 }
 
 
-def find_turn_order(entityList):
-    list_item_num = 0
-
-    # make a new list where each dict is turned to an object
-    old_list = entityList
-    for _ in range(len(entityList)):
-        entity_name = entityList[list_item_num]["Name"]
-        # "Billie"
-        # Billie.Name
-        print(entity_name)
-        entity_name = Entity(entityList[list_item_num])
-        print(entity_name.Name)
-        entityList.append(entity_name)
-        list_item_num += 1
-
-    # make sure the dicts are out of the list
-    for _ in range(0, list_item_num):
-        entityList.remove(entityList[0])
-    list_item_num = 0
-
-    # sort the object list
-    object_list = sorted(entityList, key=lambda x: x.AGI, reverse=True)
-
-    # replace the objects with their former dict selves
-    for _ in range(len(object_list)):
-        other_list_item_num = 0
-        print()
-        for __ in range(len(old_list)):
-            print(object_list[list_item_num].Name)
-            print(old_list[other_list_item_num]["Name"])
-            if object_list[list_item_num].Name == old_list[other_list_item_num]["Name"]:
-                object_list[list_item_num] = old_list[other_list_item_num]
-                print("PASSED THE DICT CHECK!")
-            other_list_item_num += 1
-        list_item_num += 1
-
-    # thus sorting a list of dicts by a shared key
-    print(object_list)
-    return object_list
+def find_turn_order(entity_list: list[Entity]) -> list[Entity]:
+    return sorted(entity_list, key=lambda x: x.AGI, reverse=True)
 
 
 ###
 
 
-# What I need!
-# function that takes an entity (dict) as an argument
-# take the ["Name"] key's definition
-# create a class object named whatever the ["Name"] key is while using the actual dict as an argument
-# so for example
-#
-# dick = {"Name":"Billie","OtherShit":"Existent"}
-# voodooMagic(dick)
-# print(Billie.Name)
-# print(Billie.OtherShit)
-#
-# OUTPUT:
-# Billie
-# Existent
-#
-# make/teach me how to make voodooMagic() :3
+
 
 turnOrder = find_turn_order([entities["Billie"], entities["EnemyWizard"], entities["EnemyWarrior"]])
 print(turnOrder)
