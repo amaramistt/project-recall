@@ -127,7 +127,7 @@ def find_turn_order(entityList):
 ###
 
 
-# What i need!
+# What I need!
 # function that takes an entity (dict) as an argument
 # take the ["Name"] key's definition
 # create a class object named whatever the ["Name"] key is while using the actual dict as an argument
