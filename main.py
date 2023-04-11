@@ -100,24 +100,30 @@ jobs = {
 }
 
 
-def gen_starting_stats(character):
+# 1 -> 4-5
+# 2 -> 8-10
+# 3 -> 12-15
+# 4 -> 16-20
+def roll_stat(modifier: int):
+    return (modifier * 4) + random.randrange(0, modifier+1)
+
+
+def gen_starting_stats(character: Entity):
     # grab the character and their job
     # create random values according to the job's stat value that correspond to each stat
     # make those stats their stats
     # would act as a complete reset
     global jobs, stats_order
-    character["Level"] = 1
-    char_job = jobs[character["Job"]]
-    job_stat = 0
-    sheet_stat = 1
-    while sheet_stat <= 6:
-        generated_stat = char_job[job_stat] + (char_job[job_stat] * 3) + random.randrange(0, (char_job[job_stat] + 1))
-        character[stats_order[sheet_stat]] = generated_stat
-        print(f"{character['Name']}'s {stats_order[sheet_stat]} stat: {generated_stat}")
-        job_stat += 1
-        sheet_stat += 1
-    character["HP"] = character["Max HP"]
-    character["MP"] = character["Max MP"]
+    character.Level = 1
+    char_job = jobs[character.Job]
+
+    character.STR = roll_stat(char_job[2])
+    character.RES = roll_stat(char_job[3])
+    character.MND = roll_stat(char_job[4])
+    character.AGI = roll_stat(char_job[5])
+
+    character.HP = character.MaxHP
+    character.MP = character.MaxMP
     pass
 
 
