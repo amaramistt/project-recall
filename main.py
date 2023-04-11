@@ -9,7 +9,7 @@
 
 import os
 import random
-from entity import find_turn_order
+from entity import Entity, find_turn_order
 
 stats_order = {
     # required to let levelUp() or any function like it work at all
@@ -22,7 +22,7 @@ stats_order = {
 }
 
 entities = {
-    "Billie": {
+    "Billie": Entity({
         "Name": "Billie",
         "EntityType": "PlayerCharacter",
         "Job": "mage",
@@ -45,8 +45,8 @@ entities = {
                 "abilityType": "NOT_OFFENSIVE"
             },
         }
-    },
-    "EnemyWizard": {
+    }),
+    "EnemyWizard": Entity({
         # Basic things that should be easy to call like name, id, and stats
         "Name": "Enraged Wizard",
         "EntityType": "Enemy",
@@ -64,8 +64,8 @@ entities = {
         "Abilities": {
             "Fireball": "forfireball"
         }
-    },
-    "EnemyWarrior": {
+    }),
+    "EnemyWarrior": Entity({
         "Name": "Stalwart Warrior",
         "EntityType": "Enemy",
         "EntityID": "ENEMY_2",
@@ -82,7 +82,7 @@ entities = {
         "Abilities": {
             "Skull Crusher": "SkullCrusher"
         }
-    }
+    })
 }
 
 # JOB STATS SYNTAX
@@ -92,10 +92,12 @@ entities = {
 # 4 means exceptional
 # stats go HP > MP > STR > RES > MND > AGI
 # !!! IN ORDER !!!
-jobs = {"warrior": [3, 1, 3, 3, 1, 1],
-        "just a guy": [1, 1, 1, 1, 1, 1],
-        "mage": [1, 3, 1, 1, 3, 2],
-        "priest": [1, 3, 2, 1, 2, 2]}
+jobs = {
+    "warrior": [3, 1, 3, 3, 1, 1],
+    "just a guy": [1, 1, 1, 1, 1, 1],
+    "mage": [1, 3, 1, 1, 3, 2],
+    "priest": [1, 3, 2, 1, 2, 2]
+}
 
 
 def gen_starting_stats(character):
@@ -119,9 +121,6 @@ def gen_starting_stats(character):
     pass
 
 
-###
-
-
 def level_up(character):
     global jobs, stats_order
 
@@ -138,14 +137,6 @@ def level_up(character):
     print("New stats:", character, "\n")
 
 
-###
-
-# def findTurnOrder(entityList):
-#   entityList = sorted(entityList, key=lambda x: x['AGI'], reverse=True)
-#   return entityList
-# Not working and not likely to work without creating another file and working with classes. On the to-do list.
-
-
 def initiate_battle(player_party):
     enemies_to_spawn = random.randrange(1, 3)
     enemies_rolled = []
@@ -156,8 +147,6 @@ def initiate_battle(player_party):
     take_turn(player_party, enemies_rolled)
 
 
-###
-
 def find_target(amount_of_enemies):
     target = int(input("Which numbered enemy would you like to attack?"))
     target -= 1
@@ -167,8 +156,6 @@ def find_target(amount_of_enemies):
         target = amount_of_enemies - 1
     return target
 
-
-###
 
 def take_turn(character, enemy):
     turn_order = find_turn_order([character, enemy])
@@ -242,9 +229,6 @@ def take_turn(character, enemy):
             battle_cleanup(character, enemy, 10, 12)
 
 
-###
-
-
 def damage_calc(attacker, defender, magic):
     critical = 2 if random.uniform(0, 1) >= 0.95 else 1
 
@@ -276,9 +260,6 @@ def damage_calc(attacker, defender, magic):
         return 0
 
 
-###
-
-
 def battle_cleanup(character, enemy, exp, gold):
     if character["HP"] > 0:
         print("B A T T L E  W O N !")
@@ -291,8 +272,6 @@ def battle_cleanup(character, enemy, exp, gold):
         input(" game over...")
         return False
 
-
-###
 
 def skull_crusher(attacker, defender):
     if attacker["MP"] < 3:
@@ -309,8 +288,6 @@ def skull_crusher(attacker, defender):
     return int(damage)
 
 
-###
-
 def forfireball(attacker, defender):
     if attacker["MP"] < 40:
         return 0
@@ -323,8 +300,6 @@ def forfireball(attacker, defender):
         defender["RES"] += defense_ignored
         return damage
 
-
-###
 
 def focus(user):
     mind_multiple = (user["MND"] * 0.05) + 1
@@ -349,26 +324,28 @@ def focus(user):
         user["MND"] += mind_to_gain
 
 
-###
+def main():
+    gen_starting_stats(entities["Billie"])
+    input(entities["Billie"])
+    for _ in range(15):
+        level_up(entities["Billie"])
+    for _ in range(10):
+        level_up(entities["EnemyWizard"])
+    for _ in range(10):
+        level_up(entities["EnemyWarrior"])
+
+    entities["Billie"]["HP"] -= damage_calc(entities["EnemyWizard"], entities["Billie"], True)
+    input(f"{entities['Billie']['HP']}")
+    focus(entities["Billie"])
+    input(f"{entities['Billie']['HP']}")
+    # findTurnOrder([entities["Billie"], [entities["EnemyWizard"], entities["EnemyWarrior"]]])
+    # initiateBattle([entities["Billie"]])
+    print(skull_crusher(entities["Billie"], entities["EnemyWizard"]))
+    print(forfireball(entities["EnemyWizard"], entities["Billie"]))
+
+    # Have to find a way to make turnOrder() work before I can start debugging the new takeTurn()
+    # takeTurn([entities["Billie"]], [entities["EnemyWizard"],entities["EnemyWarrior"]])
 
 
-gen_starting_stats(entities["Billie"])
-input(entities["Billie"])
-for i in range(15):
-    level_up(entities["Billie"])
-for i in range(10):
-    level_up(entities["EnemyWizard"])
-for i in range(10):
-    level_up(entities["EnemyWarrior"])
-
-entities["Billie"]["HP"] -= damage_calc(entities["EnemyWizard"], entities["Billie"], True)
-input(f"{entities['Billie']['HP']}")
-focus(entities["Billie"])
-input(f"{entities['Billie']['HP']}")
-# findTurnOrder([entities["Billie"], [entities["EnemyWizard"], entities["EnemyWarrior"]]])
-# initiateBattle([entities["Billie"]])
-print(skull_crusher(entities["Billie"], entities["EnemyWizard"]))
-print(forfireball(entities["EnemyWizard"], entities["Billie"]))
-
-# Have to find a way to make turnOrder() work before I can start debugging the new takeTurn()
-# takeTurn([entities["Billie"]], [entities["EnemyWizard"],entities["EnemyWarrior"]])
+if __name__ == "__main__":
+    main()
