@@ -109,10 +109,13 @@ jobs = {
 def roll_stat(modifier: int, start: bool):
     #start is true if it's the first level, used in gen_starting_stats
     #start is false if it's being used anywhere else, like in level_up
-    if start == True:
+    if start:
         return (modifier * 4) + random.randrange(0, modifier+1)
-    if start == False:
+    elif not start:
         return modifier + random.randrange(modifier, modifier+4)
+    else:
+        input("Error: You most likely forgot to set the start variable!")
+        return None
 
 
 def gen_starting_stats(character: Entity):
@@ -207,7 +210,6 @@ def take_turn(character: list[Entity], enemy: list[Entity]):
                 character.remove(character[enemy_target])
         
 
-
 def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity]):
     cmd = input("Command?\n").strip().lower()
     if cmd == "attack":
@@ -230,6 +232,7 @@ def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity]):
     if enemy[target]["HP"] <= 0:
         turn_order.remove(enemy[target])
         enemy.remove(enemy[target])
+
 
 def ability_handler(character: list[Entity], enemy: list[Entity], turn_order: list[Entity]):
     #check if you have an abiltiy
@@ -264,6 +267,7 @@ def ability_handler(character: list[Entity], enemy: list[Entity], turn_order: li
         input("you don't have an ability dummy")
         pc_turn_handler(character, enemy, turn_order)
 ###
+
 
 def damage_calc(attacker, defender, magic):
     critical = 2 if random.uniform(0, 1) >= 0.95 else 1
