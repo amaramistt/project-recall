@@ -16,7 +16,8 @@ class Entity(object):
         self.__items = {}
 
     def __repr__(self):
-        return f'{self.Name} [STR: {self.STR} RES: {self.RES} MND: {self.MND} AGI: {self.AGI}]'
+        #makes it so that whenever the class object itself is printed, it prints the below instead!
+        return f'Name: {self.Name}\nLevel: {self.Level}\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nJOB: {self.Job}\nSTR: {self.STR}\nRES: {self.RES}\nMND: {self.MND}\nAGI: {self.AGI}'
 
 
 
@@ -85,7 +86,12 @@ entities = {
 }
 
 
-def find_turn_order(entity_list: list[Entity]) -> list[Entity]:
+def find_turn_order(pc_party: list[Entity], enemies_in_battle: list[Entity]):
+    entity_list = []
+    for actors in pc_party:
+        entity_list.append(actors)
+    for actors in enemies_in_battle:
+        entity_list.append(actors)
     return sorted(entity_list, key=lambda x: x.AGI, reverse=True)
 
 
@@ -94,5 +100,3 @@ def find_turn_order(entity_list: list[Entity]) -> list[Entity]:
 
 
 
-turnOrder = find_turn_order([entities["Billie"], entities["EnemyWizard"], entities["EnemyWarrior"]])
-print(turnOrder)
