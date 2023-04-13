@@ -3,7 +3,7 @@
 # 1a) Make battle_cleanup() actually do something
 # 1b) Fix bugs
 # 2) Create a system in which the player may exist outside of battle, so that items/equipment/accessories/menuing
-#    may be implimented and debugged
+#    may be implemented and debugged
 # 3) Create a system in which passive, consumable, and non-consumable items can be seamlessly acquired and used,
 #    preferably complete with item pools and broken synergies :3
 # 4) Create a system where I can create spell functions (a la SkullCracker()) in a different file and import
@@ -82,7 +82,7 @@ entities = {
 }
 
 player_party = {
-    
+
 }
 # JOB STATS SYNTAX
 # 1 means low
@@ -96,8 +96,8 @@ jobs = {
     "just a guy": [1, 1, 1, 1, 1, 1],
     "mage": [1, 3, 1, 1, 3, 2],
     "priest": [1, 3, 2, 1, 2, 2],
-    "thief": [2,1,2,2,1,3],
-    "monk": [2,1,3,1,3,3]
+    "thief": [2, 1, 2, 2, 1, 3],
+    "monk": [2, 1, 3, 1, 3, 3]
 }
 
 
@@ -124,14 +124,15 @@ def title_screen():
         os.system(CLEAR)
         title_screen()
         return None
-    
+
+
 ###
 
 
 def begin_run_handler():
     global jobs
     os.system(CLEAR)
-    #before anything, get the seed
+    # before anything, get the seed
     seed = input("Please input your seed (Leave blank for a random one!)")
     if seed == "":
         seed = random.randint(10000000, 99999999)
@@ -139,13 +140,13 @@ def begin_run_handler():
     else:
         random.seed(seed)
 
-    #start with a selected job
+    # start with a selected job
     print(f"Jobs available for selection: {jobs.keys()}")
     char_job = input("What job should Billie start with?").strip().lower()
     if char_job in jobs:
         entities["Billie"].Job = char_job
         player_party[entities["Billie"].Name] = entities["Billie"]
-        #generate its starting stats
+        # generate its starting stats
         gen_starting_stats(player_party["Billie"])
         input(f"Character sheet\n{player_party['Billie']}")
         return True
@@ -153,34 +154,33 @@ def begin_run_handler():
         input("That is not an available job!")
         begin_run_handler()
         return None
-        
-        
 
-    
+
 def menu_handler():
     pass
+
+
 ###
 
 
 def item_pickup_handler():
     pass
+
+
 ###
 
 
-
-
-
-# 1 -> 4-5 start 
+# 1 -> 4-5 start
 # 2 -> 8-10 start
 # 3 -> 12-15 start
 # 4 -> 16-20 start
 def roll_stat(modifier: int, start: bool):
-    #start is true if it's the first level, used in gen_starting_stats
-    #start is false if it's being used anywhere else, like in level_up
+    # start is true if it's the first level, used in gen_starting_stats
+    # start is false if it's being used anywhere else, like in level_up
     if start == True:
-        return (modifier * 4) + random.randrange(0, modifier+1)
+        return (modifier * 4) + random.randrange(0, modifier + 1)
     if start == False:
-        return modifier + random.randrange(modifier, modifier+4)
+        return modifier + random.randrange(modifier, modifier + 4)
 
 
 def gen_starting_stats(character: Entity):
@@ -205,7 +205,7 @@ def gen_starting_stats(character: Entity):
 
 def level_up(character):
     global jobs, stats_order
-    
+
     char_job = jobs[character.Job]
     print(f"{character.Name} Leveled Up!")
     character.Level += 1
@@ -220,7 +220,7 @@ def level_up(character):
     print(f"New stats:\n{character}\n")
 
 
-#\/\/ NEEDS REWORK \/\/
+# \/\/ NEEDS REWORK \/\/
 # def initiate_battle(player_party):
 #     enemies_to_spawn = random.randrange(1, 3)
 #     enemies_rolled = []
@@ -242,72 +242,69 @@ def find_target(amount_of_enemies):
 
 
 def take_turn(character: list[Entity], enemy: list[Entity]):
-    #To do
-    #make sure the same entity can't move twice in a row OR make it into a mechanic and make it work as intended
-    #create and integrate items
+    # To do
+    # make sure the same entity can't move twice in a row OR make it into a mechanic and make it work as intended
+    # create and integrate items
     turn_order = find_turn_order(character, enemy)
     os.system('cls' if os.name == 'nt' else 'clear')
     bloodthirsty = None
 
-    #go through this process for every entity and provide a more concise way to refer to the entity taking the turn
+    # go through this process for every entity and provide a more concise way to refer to the entity taking the turn
     for entity in turn_order:
         os.system(CLEAR)
 
-        #bloodthirstiness is a mechanic where if you get a kill, you get to move again, but only once
-        #if the variable is not None, it is a character
+        # bloodthirstiness is a mechanic where if you get a kill, you get to move again, but only once
+        # if the variable is not None, it is a character
         if bloodthirsty != None:
             input(f"{bloodthirsty.Name} is bloodthirsty!")
             if bloodthirsty.EntityType == "PlayerCharacter":
-                pc_turn_handler(bloodthirsty,enemy,turn_order)
+                pc_turn_handler(bloodthirsty, enemy, turn_order)
                 input(f"{bloodthirsty.Name}'s primal rage dims!")
             if bloodthirsty.EntityType == "Enemy":
                 enemy_AI(character, enemy, turn_order)
                 input(f"{bloodthirsty.Name}'s primal rage dims!")
             bloodthirsty = None
-        
+
         # Start of entity's turn
         input(f"It's {entity.Name}'s turn!")
-        
+
         # Check whether entity is a PC
         if entity.EntityType == "PlayerCharacter":
-            #do PC shit
-            bloodthirsty_check = pc_turn_handler(entity,enemy,turn_order)
-            #check for bloodthirsty
+            # do PC shit
+            bloodthirsty_check = pc_turn_handler(entity, enemy, turn_order)
+            # check for bloodthirsty
             if bloodthirsty_check != None:
                 bloodthirsty = bloodthirsty_check
-                
-        #check whether or not entity is an enemy
+
+        # check whether or not entity is an enemy
         if entity.EntityType == "Enemy":
-            #do enemy shit
+            # do enemy shit
             bloodthirsty_check = enemy_AI(character, entity, turn_order)
             if bloodthirsty_check != None:
                 bloodthirsty = bloodthirsty_check
-        #flag if the enemies are all dead
+        # flag if the enemies are all dead
         if len(enemy) > 0:
             enemies_are_dead = True
-        #flag if the party isn't wiped
+        # flag if the party isn't wiped
         if len(character) == 0:
             party_not_wiped = False
-        #check for the flags & win/lose the battle
+        # check for the flags & win/lose the battle
         if not party_not_wiped:
             input("You wiped...")
             return False
         elif enemies_are_dead:
             print("Battle Won!")
             return True
-    take_turn(character,enemy)
-        
+    take_turn(character, enemy)
 
-    #check if there's still enemies
+    # check if there's still enemies
     if len(enemy) > 0:
         take_turn(character, enemy)
         return None
-    #if there's not, you've won!
+    # if there's not, you've won!
     else:
         print("Battle Won!")
         return True
-        
-        
 
 
 def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity]):
@@ -327,76 +324,79 @@ def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity]):
             turn_order.remove(enemy[target])
             enemy.remove(enemy[target])
     elif cmd == "ability":
-        ability_handler(character,enemy,turn_order)
+        ability_handler(character, enemy, turn_order)
     elif cmd == "pass":
         input(f"{character.Name} waited to act!")
         return bloodthirsty
     else:
         input("Invalid command!")
-        pc_turn_handler(character,enemy,turn_order)
+        pc_turn_handler(character, enemy, turn_order)
     return bloodthirsty
 
 
 def ability_handler(character, enemy: list[Entity], turn_order: list[Entity]):
     bloodthirsty = None
-    #check if you have an abiltiy
+    # check if you have an abiltiy
     if len(character.Abilities) >= 1:
-        #print the abilities and let you choose one
+        # print the abilities and let you choose one
         print("Your available abilities:", character.Abilities.keys())
         chosen_ability = input("Which ability do you choose?")
         use_ability = globals()[character.Abilities[chosen_ability]["abilityFunc"]]
-        #check if the input is an ability you have
+        # check if the input is an ability you have
         if chosen_ability in character.Abilities:
-            #if it's not an offensive ability, just do the function as any damage calcs involved will be in the corresponding function
+            # if it's not an offensive ability,
+            # just do the function as any damage calcs involved will be in the corresponding function
             if character.Abilities[chosen_ability]["abilityType"] == "NOT_OFFENSIVE":
-                #!!!CRITICAL REMINDER!!!
-                #SINCE THE ABILITY HANDLER DOESN'T CHECK IF ANYTHING DIED, THE ABILITY FUNCTION HAS TO DEAL WITH IT
-                #THIS ONLY MATTERS IF THE ABILITY TYPE IS NOT_OFFENSIVE BUT STILL DEALS DAMAGE
-                #!!!CRITICAL REMINDER!!!
+                # !!!CRITICAL REMINDER!!!
+                # SINCE THE ABILITY HANDLER DOESN'T CHECK IF ANYTHING DIED, THE ABILITY FUNCTION HAS TO DEAL WITH IT
+                # THIS ONLY MATTERS IF THE ABILITY TYPE IS NOT_OFFENSIVE BUT STILL DEALS DAMAGE
+                # !!!CRITICAL REMINDER!!!
                 use_ability(character)
-            #if it is an offensive ability, use it as a glorified damage calc
+            # if it is an offensive ability, use it as a glorified damage calc
             elif character.Abilities[chosen_ability]["abilityType"] == "OFFENSIVE":
                 target = find_target(len(enemy))
                 damage = use_ability(character, enemy[target])
                 input(f"You deal {damage} damage!")
                 enemy[target].HP -= damage
-                turn_order.remove(entity)
-        #if the input isn't something you have, give an error
+        # if the input isn't something you have, give an error
         else:
             input("That is not an available ability!")
             pc_turn_handler(character, enemy, turn_order)
             return None
-    #if you don't have an ability, don't let them do anything
+    # if you don't have an ability, don't let them do anything
     else:
         input("you don't have an ability dummy")
         pc_turn_handler(character, enemy, turn_order)
+
+
 ###
 
 def enemy_AI(character: list[Entity], enemy, turn_order):
     bloodthirsty = None
-    #find a random target (advanced targeting will be developed later most likely (make this all just a more complex function))
+    # choose a random target (advanced targeting comes later)
     enemy_target = random.randrange(0, len(character))
-    #check if its mind is higher than its strength and use the higher stat in the damage calc
+    # check if its mind is higher than its strength and use the higher stat in the damage calc
     if enemy.STR > enemy.MND:
         enemy_damage = damage_calc(enemy, character[enemy_target], False)
         input(f"The enemy attacks with their weapon and deals {enemy_damage} damage to {character[enemy_target].Name}!")
     else:
         enemy_damage = damage_calc(enemy, character[enemy_target], True)
         input(f"The enemy casts a spell and deals {enemy_damage} damage to {character[enemy_target].Name}!")
-    #deal damage
+    # deal damage
     character[enemy_target].HP -= enemy_damage
-    #make sure the character doesn't have negative health
+    # make sure the character doesn't have negative health
     if character[enemy_target].HP < 0:
         character[enemy_target].HP = 0
-    #let the player know what health they're at
+    # let the player know what health they're at
     input(f"{character[enemy_target].Name} is at {character[enemy_target].HP}/{character[enemy_target].MaxHP} HP!")
-    #check if the character died
+    # check if the character died
     if character[enemy_target].HP <= 0:
-        #kill them
+        # kill them
         input(f"{character[enemy_target].Name} Has Fallen!")
         bloodthirsty = enemy
         turn_order.remove(character[enemy_target])
         character.remove(character[enemy_target])
+
 
 def damage_calc(attacker, defender, magic):
     critical = 2 if random.uniform(0, 1) >= 0.95 else 1
@@ -429,9 +429,11 @@ def damage_calc(attacker, defender, magic):
         return 0
 
 
-#\/\/ Probably needs a rework \/\/
+# \/\/ Probably needs a rework \/\/
 def battle_cleanup(character, enemy, exp, gold):
     pass
+
+
 #     if character["HP"] > 0:
 #         print("B A T T L E  W O N !")
 #         print(f"You defeated {enemy.Name}!")
@@ -494,8 +496,6 @@ def focus(user):
         if mind_to_gain == 0:
             mind_to_gain = 1
         user.MND += mind_to_gain
-
-
 
 
 def main():
