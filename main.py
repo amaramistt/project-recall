@@ -177,9 +177,9 @@ def item_pickup_handler():
 def roll_stat(modifier: int, start: bool):
     # start is true if it's the first level, used in gen_starting_stats
     # start is false if it's being used anywhere else, like in level_up
-    if start == True:
+    if start:
         return (modifier * 4) + random.randrange(0, modifier + 1)
-    if start == False:
+    if not start:
         return modifier + random.randrange(modifier, modifier + 4)
 
 
@@ -221,14 +221,14 @@ def level_up(character):
 
 
 # \/\/ NEEDS REWORK \/\/
-# def initiate_battle(player_party):
-#     enemies_to_spawn = random.randrange(1, 3)
-#     enemies_rolled = []
-#     for _ in range(0, enemies_to_spawn):
-#         enemy_spawned = f"ENEMY_{random.randrange(1, 3)}"
-#         enemies_rolled.append(enemy_spawned)
-#     print(enemies_rolled)
-#     take_turn(player_party, enemies_rolled)
+def initiate_battle(player_party):
+    enemies_to_spawn = random.randrange(1, 3)
+    enemies_rolled = []
+    for _ in range(0, enemies_to_spawn):
+        enemy_spawned = f"ENEMY_{random.randrange(1, 3)}"
+        enemies_rolled.append(enemy_spawned)
+    print(enemies_rolled)
+    run_encounter(player_party, enemies_rolled)
 
 
 def find_target(amount_of_enemies):
@@ -241,70 +241,64 @@ def find_target(amount_of_enemies):
     return target
 
 
-def take_turn(character: list[Entity], enemy: list[Entity]):
+def run_encounter(friendlies: list[Entity], enemies: list[Entity]):
     # To do
     # make sure the same entity can't move twice in a row OR make it into a mechanic and make it work as intended
     # create and integrate items
-    turn_order = find_turn_order(character, enemy)
-    os.system('cls' if os.name == 'nt' else 'clear')
-    bloodthirsty = None
+    initiative_list = find_turn_order(friendlies, enemies)
+    os.system(CLEAR)
+
+    # for actor in initiative_list:
+    #   outcome = process_actor()
+    #   if outcome = VICTIM_DEAD:
+    #      process_actor(friendlies, enemies)
 
     # go through this process for every entity and provide a more concise way to refer to the entity taking the turn
-    for entity in turn_order:
+    for actor in initiative_list:
         os.system(CLEAR)
 
         # bloodthirstiness is a mechanic where if you get a kill, you get to move again, but only once
         # if the variable is not None, it is a character
-        if bloodthirsty != None:
-            input(f"{bloodthirsty.Name} is bloodthirsty!")
-            if bloodthirsty.EntityType == "PlayerCharacter":
-                pc_turn_handler(bloodthirsty, enemy, turn_order)
-                input(f"{bloodthirsty.Name}'s primal rage dims!")
-            if bloodthirsty.EntityType == "Enemy":
-                enemy_AI(character, enemy, turn_order)
-                input(f"{bloodthirsty.Name}'s primal rage dims!")
-            bloodthirsty = None
-
         # Start of entity's turn
-        input(f"It's {entity.Name}'s turn!")
+        input(f"It's {actor.Name}'s turn!")
 
         # Check whether entity is a PC
-        if entity.EntityType == "PlayerCharacter":
+        if actor.EntityType == "PlayerCharacter":
             # do PC shit
-            bloodthirsty_check = pc_turn_handler(entity, enemy, turn_order)
+            bloodthirsty_check = pc_turn_handler(actor, enemies, initiative_list)
             # check for bloodthirsty
-            if bloodthirsty_check != None:
-                bloodthirsty = bloodthirsty_check
+            if bloodthirsty_check is not None:
+                # cool bloodthirsty flavor text here!
+                pc_turn_handler(bloodthirsty_check, enemies, initiative_list)
+                # cool bloodthirsty flavor text here!
 
-        # check whether or not entity is an enemy
-        if entity.EntityType == "Enemy":
+        # check if entity is an enemy
+        if actor.EntityType == "Enemy":
             # do enemy shit
-            bloodthirsty_check = enemy_AI(character, entity, turn_order)
-            if bloodthirsty_check != None:
-                bloodthirsty = bloodthirsty_check
+            bloodthirsty_check = enemy_AI(friendlies, actor, initiative_list)
+            if bloodthirsty_check is not None:
+                # cool bloodthirsty flavor text here!
+                enemy_AI(friendlies, bloodthirsty_check, initiative_list)
+                # cool bloodthirsty flavor text here!
+
         # flag if the enemies are all dead
-        if len(enemy) > 0:
+        if len(enemies) > 0:
             enemies_are_dead = True
+
         # flag if the party isn't wiped
-        if len(character) == 0:
+        if len(friendlies) == 0:
             party_not_wiped = False
+
         # check for the flags & win/lose the battle
         if not party_not_wiped:
             input("You wiped...")
             return False
+
         elif enemies_are_dead:
             print("Battle Won!")
             return True
-    take_turn(character, enemy)
 
-    # check if there's still enemies
-    if len(enemy) > 0:
-        take_turn(character, enemy)
-        return None
-    # if there's not, you've won!
-    else:
-        print("Battle Won!")
-        return True
+    run_encounter(friendlies, enemies)
 
 
 def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity]):
@@ -396,6 +390,7 @@ def enemy_AI(character: list[Entity], enemy, turn_order):
         bloodthirsty = enemy
         turn_order.remove(character[enemy_target])
         character.remove(character[enemy_target])
+    return bloodthirsty
 
 
 def damage_calc(attacker, defender, magic):
@@ -507,17 +502,23 @@ def main():
     for _ in range(10):
         level_up(entities["EnemyWarrior"])
 
-    input(f"billie is at {entities['Billie'].HP}/{entities['Billie'].HP} hp")
-    turn_order = find_turn_order([entities["Billie"]], [entities["EnemyWizard"], entities["EnemyWarrior"]])
-    for entity in turn_order:
-        input(entity.Name)
+    run_encounter([entities["Billie"]], [entities["EnemyWizard"], entities["EnemyWarrior"]])
 
-    # # initiateBattle([entities["Billie"]])
-    # print(skull_crusher(entities["Billie"], entities["EnemyWizard"]))
-    # print(forfireball(entities["EnemyWizard"], entities["Billie"]))
 
-    # # Have to find a way to make turnOrder() work before I can start debugging the new takeTurn()
-    take_turn([entities["Billie"]], [entities["EnemyWizard"], entities["EnemyWarrior"]])
+# start_encounter(player_party, enemy_party)
+# while enemies exist:
+#   - establish initial turn order
+#   - take first actor
+#   - decide what actor do
+#   - if victim dies, remove from appropriate list
+#   - if victim was last party member, go to GAME OVER
+#   - if victim was last enemy, return and clean up battle (process EXP, level ups, etc)
+#   - put actor back into turn order at appropriate place (i.e. end, or somewhere in the middle if you wanna be fancy)
+#
+
+
+
+
 
 
 if __name__ == "__main__":
