@@ -1,6 +1,5 @@
 # To-Do List
-# 1) Create a system in which other, random player characters can be acquired by the player. 
-#    No more than 4 party members should be able to be in the party.
+# 1) Create a data structure that handles possible enemy encounters
 # 2) Create a system in which the player may exist outside of battle, so that items/equipment/accessories/menuing
 #    may be implemented and debugged
 # 3) Create a system in which passive, consumable, and non-consumable items can be seamlessly acquired and used,
@@ -97,42 +96,75 @@ jobs = {
     "warrior": {
         "stats": [3, 1, 3, 3, 1, 1],
         "abilities": {
-            10: {"NAME": "SkullCrusher", 
-                "SkullCrusher": {
-                "ABILITYFUNC": "skull_crusher",
-                "ABILITYTYPE": "OFFENSIVE"
-                }}
-            }
+            10: "skullcrusher"
+        }
     },
-    "just a guy": {"stats": [1, 1, 1, 1, 1, 1],
-                  "abilities": {
-                      10: {"NAME": "Slap", 
-                    "Slap": {
-                    "ABILITYFUNC": "slap",
-                    "ABILITYTYPE": "NOT_OFFENSIVE"
-                    }}
-                  }},
-    "mage": {"stats": [1, 3, 1, 1, 3, 2],
-            "abilities": {
-                10: {"NAME": "Fireball", 
-                    "Fireball": {
-                    "ABILITYFUNC": "forfireball",
-                    "ABILITYTYPE": "OFFENSIVE"
-                    }}
-            }},
-    "priest": {"stats": [1, 3, 2, 1, 2, 2],
-              "abilities": {}},
-    "thief": {"stats": [2, 1, 2, 2, 1, 3],
-             "abilities": {}},
-    "monk": {"stats": [2, 1, 3, 1, 3, 3],
-            "abilities": {
-                10: {"NAME": "Focus",
-                    "Focus": {
-                    "ABILITYFUNC": "focus",
-                    "ABILITYTYPE": "NOT_OFFENSIVE"
-                        }}
-            }},
+    "just a guy": {
+        "stats": [1, 1, 1, 1, 1, 1],
+        "abilities": {
+            10: "slap"
+        }
+    },
+    "mage": {
+        "stats": [1, 3, 1, 1, 3, 2],
+        "abilities": {
+            10: "fireball"
+        }
+    },
+    "priest": {
+        "stats": [1, 3, 2, 1, 2, 2],
+        "abilities": {}
+    },
+    "thief": {
+        "stats": [2, 1, 2, 2, 1, 3],
+        "abilities": {}
+    },
+    "monk": {
+        "stats": [2, 1, 3, 1, 3, 3],
+        "abilities": {
+            10: "focus",
+        }
+    }
 }
+
+# key = ability ID
+# value = ability definition
+
+# targets = [
+#     "TARGET_VICTIM",     # the thing the character is currently directly engaged in combat with
+#     "TARGET_SELF",       # the character
+#     "TARGET_MOB_ANY",    # a random non-friendly target
+#     "TARGET_MOB_GROUP",  # a single group (what is a group? TBD)
+#     "TARGET_MOB_ALL",    # all non-friendly
+#     "TARGET_DIRECT",     # victim must be chosen explicitly, foe/friendly not a factor with this target style
+#     "TARGET_PARTY",      # victim must be chosen, must be in player's party
+#     "TARGET_PARTY_ALL",  # entire party
+# ]
+
+abilities = {
+    "focus": {
+        "name": "Focus",
+        "callback": "focus",
+        "target": "TARGET_SELF"
+    },
+    "fireball": {
+        "name": "Fireball",
+        "callback": "forfireball",
+        "target": "TARGET_DIRECT"
+    },
+    "skullcrusher": {
+        "name": "Skull Crusher",
+        "callback": "skull_crusher",
+        "target": "TARGET_VICTIM"
+    },
+    "slap": {
+        "name": "Slap",
+        "callback": "slap",
+        "target": "TARGET_SELF"
+    },
+}
+
+
 
 #Ability Template
 
@@ -147,6 +179,7 @@ jobs = {
 #"ABILITYFUNC": "name",
 #"ABILITYTYPE": "OFFENSIVE/NOT_OFFENSIVE"
 #}}
+
 
 def print_tutorial():
     print("Basic Combat Tutorial")
@@ -265,7 +298,7 @@ def item_pickup_handler():
 # 2 -> 8-10 start
 # 3 -> 12-15 start
 # 4 -> 16-20 start
-def roll_stat(modifier: int, start: bool):
+def roll_stat(modifier: int, start: bool = False):
     # start is true if it's the first level, used in gen_starting_stats
     # start is false if it's being used anywhere else, like in level_up
     if start:
@@ -302,29 +335,28 @@ def gen_starting_stats(character: Entity, first_generation: bool):
             level_up(character, True)
     
 
-def level_up(character: Entity, invisible: bool):
+def level_up(character: Entity, suppress_output: bool = False):
     global jobs, stats_order
     char_job = jobs[character.Job]
+    ability_messages = ""
 
     character.Level += 1
-    character.MaxHP += roll_stat(char_job["stats"][0], False)
-    character.MaxMP += roll_stat(char_job["stats"][1], False)
-    character.STR += roll_stat(char_job["stats"][2], False)
-    character.RES += roll_stat(char_job["stats"][3], False)
-    character.MND += roll_stat(char_job["stats"][4], False)
-    character.AGI += roll_stat(char_job["stats"][5], False)
+    character.MaxHP += roll_stat(char_job["stats"][0])
+    character.MaxMP += roll_stat(char_job["stats"][1])
+    character.STR += roll_stat(char_job["stats"][2])
+    character.RES += roll_stat(char_job["stats"][3])
+    character.MND += roll_stat(char_job["stats"][4])
+    character.AGI += roll_stat(char_job["stats"][5])
     character.HP = character.MaxHP
     character.MP = character.MaxMP
     if character.Level in char_job["abilities"]:
         ability_to_learn = char_job["abilities"][character.Level]
-        character.Abilities[ability_to_learn["NAME"]] = ability_to_learn[ability_to_learn["NAME"]]
-        char_learned_ability = True
-        #there is a better way to do this and I do not know it
+        character.Abilities[ability_to_learn] = abilities[ability_to_learn]
+        ability_messages = f"{character.Name} learned {abilities[ability_to_learn]['name']}!"
+        # there is a better way to do this and I do not know it
     
-    if not invisible:
-        input(f"{character.Name} Leveled Up!")
-        if char_learned_ability:
-            input(f"{character.Name} learned {ability_to_learn['NAME']}!")
+    if not suppress_output:
+        input(f"{character.Name} Leveled Up!\n{ability_messages}")
         input(f"New stats:\n{character}\n")
 
 
@@ -357,11 +389,12 @@ def generate_party_member(party_level):
     # give it a job
     generated_character.Job = random.choice(list(jobs.keys()))
     # give it starting stats
-    gen_starting_stats(generated_character, True)
+    gen_starting_stats(generated_character, first_generation=True)
     # level it up to be useful to the party
     for _ in range(1,party_level):
-        level_up(generated_character, True)
+        level_up(generated_character, suppress_output=True)
     return generated_character
+
 
 def present_player_party_members(party_level):
     os.system(CLEAR)
@@ -371,20 +404,28 @@ def present_player_party_members(party_level):
     char_2 = generate_party_member(party_level)
     print(f"Option 2\n{char_2}\n")
     cmd = input("(INPUT) Which option do you choose to join your party?")
-    while not isinstance(cmd, int):
+    done = False
+    while not isinstance(cmd, int) and not done:
         try:
             cmd = int(cmd)
         except ValueError:
             input("You must input a number!")
             cmd = input("(INPUT) Which option do you choose to join your party?")
-    if cmd == 1:
-        input(f"You chose {char_1.Name}! They join your party!")
-        player_party.append(char_1)
-        input(player_party)
-    elif cmd == 2:
-        input(f"You chose {char_2.Name}! They join your party!")
-        player_party.append(char_2)
-        input(player_party)
+        if cmd == 1:
+            input(f"You chose {char_1.Name}! They join your party!")
+            player_party.append(char_1)
+            input(player_party)
+            done = True
+        elif cmd == 2:
+            input(f"You chose {char_2.Name}! They join your party!")
+            player_party.append(char_2)
+            input(player_party)
+            done = True
+        elif cmd == 3:
+            input(f"You chose the secret, third option of going solo. YOLO!")
+            done = True
+        else:
+            input("You seem to have misinputted. Please input 1 or 2 relative to the option you want to choose.")
 
 
 # \/\/ NEEDS REWORK \/\/
@@ -397,12 +438,13 @@ def initiate_battle(player_party):
     # print(enemies_rolled)
     # run_encounter(player_party, enemies_rolled)
     #
-    #For now, I'm just going to have it call run_encounter similarly to how it would will in future
+    # For now, I'm just going to have it call run_encounter similarly to how it would will in future
     global entities
     os.system(CLEAR)
     input("The party encounters a group of enemies!")
     input("An Enraged Wizard and a Stalwart Warrior draw near!")
     run_encounter(player_party, [entities["EnemyWizard"], entities["EnemyWarrior"]])
+
 
 def find_target(amount_of_enemies):
     target = input("Which numbered enemy would you like to attack?")
@@ -559,7 +601,7 @@ def ability_handler(character, enemy: list[Entity], turn_order: list[Entity]):
     else:
         input("you don't have an ability dummy")
         pc_turn_handler(character, enemy, turn_order)
-    return bloodthirsty
+    return None
 
 
 ###
