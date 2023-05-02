@@ -333,9 +333,10 @@ def generate_party_member(party_level):
     # For now, every new entity will just be named "Billie", but i'll need to add a random name mechanic later
     # Should have appropriate starting stats for the job it rolls 
     global jobs
-    # create a new entity
+    # get a name from the names list
     gen_char_name = random.choice(player_character_names)
     player_character_names.remove(gen_char_name)
+    #make a new entity
     entities[f"{gen_char_name}"] = Entity({
         "Name": f"{gen_char_name}",
         "EntityType": "PlayerCharacter",
