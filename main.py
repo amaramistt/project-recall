@@ -1,6 +1,5 @@
 # To-Do List
-# 1) Create a system in which other, random player characters can be acquired by the player. 
-#    No more than 4 party members should be able to be in the party.
+# 1) Create a system in which enemies can be spawned from a pool of encounters only available at certain points of the game
 # 2) Create a system in which the player may exist outside of battle, so that items/equipment/accessories/menuing
 #    may be implemented and debugged
 # 3) Create a system in which passive, consumable, and non-consumable items can be seamlessly acquired and used,
@@ -11,10 +10,13 @@
 
 
 import os
+import sys
+import subprocess
 import random
-from entity import Entity, find_turn_order
+from entity import Entity, find_turn_order, find_party_level
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
+
 
 stats_order = {
     # required to let levelUp() or any function like it work at all
@@ -31,7 +33,23 @@ player_character_names = [
     "Nessira",
     "Rikia",
     "Jaen",
-    "Loura"
+    "Loura",
+    "Slyff",
+    "Jabal",
+    "Dumas",
+    "Isira",
+    "Runo",
+    "Banut",
+    "Banut",
+    "Carpef",
+    "Linnetia",
+    "Orthur",
+    "Merisa",
+    "Vyn",
+    "Odo",
+    "Nria",
+    "Raelle",
+    "Draya"
 ]
 
 entities = {
@@ -53,32 +71,28 @@ entities = {
     "EnemyWizard": Entity({
         "Name": "Enraged Wizard",
         "EntityType": "Enemy",
-        "EntityID": "ENEMY_1",
-        "Job": "mage",
         "Level": 1,
-        "Max HP": 4,
-        "Max MP": 11,
+        "Max HP": 6,
+        "Max MP": 12,
         "STR": 3,
-        "RES": 3,
-        "MND": 12,
-        "AGI": 6,
-        "HP": 4,
-        "MP": 11,
+        "RES": 7,
+        "MND": 15,
+        "AGI": 10,
+        "HP": 6,
+        "MP": 12,
         "Abilities": {}
     }),
     "EnemyWarrior": Entity({
         "Name": "Stalwart Warrior",
         "EntityType": "Enemy",
-        "EntityID": "ENEMY_2",
-        "Job": "warrior",
         "Level": 1,
-        "Max HP": 10,
+        "Max HP": 16,
         "Max MP": 2,
-        "STR": 10,
+        "STR": 9,
         "RES": 12,
         "MND": 3,
         "AGI": 4,
-        "HP": 10,
+        "HP": 16,
         "MP": 2,
         "Abilities": {}
     })
@@ -87,15 +101,14 @@ entities = {
 player_party = []
 
 # JOB STATS SYNTAX
-# 1 means low
-# 2 means middling
-# 3 means high
-# 4 means exceptional
+# Goes from 1 to 6
+# 1 means dogshit and 6 means top of the line
 # stats go HP > MP > STR > RES > MND > AGI
 # !!! IN ORDER !!!
 jobs = {
     "warrior": {
-        "stats": [3, 1, 3, 3, 1, 1],
+        "stats": [4, 1, 4, 3, 1, 2],
+        "dependencies": [],
         "abilities": {
             10: {"NAME": "SkullCrusher", 
                 "SkullCrusher": {
@@ -104,7 +117,8 @@ jobs = {
                 }}
             }
     },
-    "just a guy": {"stats": [1, 1, 1, 1, 1, 1],
+    "just a guy": {"stats": [2, 1, 1, 2, 1, 3],
+                   "dependencies": [],
                   "abilities": {
                       10: {"NAME": "Slap", 
                     "Slap": {
@@ -112,7 +126,8 @@ jobs = {
                     "ABILITYTYPE": "NOT_OFFENSIVE"
                     }}
                   }},
-    "mage": {"stats": [1, 3, 1, 1, 3, 2],
+    "mage": {"stats": [2, 3, 1, 2, 4, 3],
+             "dependencies": [],
             "abilities": {
                 10: {"NAME": "Fireball", 
                     "Fireball": {
@@ -120,11 +135,14 @@ jobs = {
                     "ABILITYTYPE": "OFFENSIVE"
                     }}
             }},
-    "priest": {"stats": [1, 3, 2, 1, 2, 2],
-              "abilities": {}},
-    "thief": {"stats": [2, 1, 2, 2, 1, 3],
+    "priest": {"stats": [2, 3, 2, 2, 3, 3],
+               "dependencies": [],
+                "abilities": {}},
+    "thief": {"stats": [3, 2, 3, 1, 2, 4],
+              "dependencies": [],
              "abilities": {}},
-    "monk": {"stats": [2, 1, 3, 1, 3, 3],
+    "monk": {"stats": [3, 1, 3, 2, 3, 3],
+            "dependencies": [],
             "abilities": {
                 10: {"NAME": "Focus",
                     "Focus": {
@@ -132,6 +150,9 @@ jobs = {
                     "ABILITYTYPE": "NOT_OFFENSIVE"
                         }}
             }},
+    "sage": {"stats": [3, 4, 1, 3, 5, 4],
+            "dependencies": ["mage", "priest"],
+            "abilities": {}},
 }
 
 #Ability Template
@@ -147,6 +168,50 @@ jobs = {
 #"ABILITYFUNC": "name",
 #"ABILITYTYPE": "OFFENSIVE/NOT_OFFENSIVE"
 #}}
+
+
+def open_file(filename):
+    if sys.platform == "win32":
+        os.startfile(filename)
+    else:
+        opener ="open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, filename])
+
+def debug_starting_stats():
+    os.system(CLEAR)
+    debug = generate_party_member(1)
+    debug.Job = "just a guy"
+    gen_starting_stats(debug, True)
+    print(f"Base Stat 1\nLevel 1:{debug.STR}")
+    lvl_up_bulk(debug, 9, True)
+    print(f"Level 10: {debug.STR}")
+    lvl_up_bulk(debug, 10, True)
+    print(f"Level 20: {debug.STR}")
+    lvl_up_bulk(debug, 10, True)
+    input(f"Level 30: {debug.STR}\n")
+    os.system(CLEAR)
+    gen_starting_stats(debug, True)
+    print(f"Base Stat 2\nLevel 1:{debug.HP}")
+    lvl_up_bulk(debug, 9, True)
+    print(f"Level 10: {debug.HP}")
+    lvl_up_bulk(debug, 10, True)
+    print(f"Level 20: {debug.HP}")
+    lvl_up_bulk(debug, 10, True)
+    input(f"Level 30: {debug.HP}")
+    os.system(CLEAR)
+    gen_starting_stats(debug, True)
+    print(f"Base Stat 3\nLevel 1: {debug.AGI}")
+    lvl_up_bulk(debug, 9, True)
+    print(f"Level 10: {debug.AGI}")
+    lvl_up_bulk(debug, 10, True)
+    print(f"Level 20: {debug.AGI}")
+    lvl_up_bulk(debug, 10, True)
+    input(f"Level 30: {debug.AGI}")
+
+def lvl_up_bulk(levelee, amount_to_lvl, hide_display: bool = True):
+    for _ in range(amount_to_lvl):
+        level_up(levelee, hide_display)
+        
 
 def print_tutorial():
     print("Basic Combat Tutorial")
@@ -202,14 +267,14 @@ def title_screen():
         return run_began
     elif cmd == "tutorial":
         print_tutorial()
-        title_screen()
         return None
     elif cmd == "back":
-        title_screen()
+        return None
+    elif cmd == "debug":
+        debug_starting_stats()
         return None
     else:
         input("Invalid input.")
-        title_screen()
         return None
 
 
@@ -247,14 +312,13 @@ def begin_run_handler():
         return None
 
 
-def menu_handler():
-    pass
-
-
-###
-
-
-def item_pickup_handler():
+def load_cutscene(cutscene_ID):
+    # IN CONSTRUCTION 
+    # finds the cutscene ID from a large database of cutscenes
+    # has some system in which this function could interpret some text as instructions
+    # i.e. if i call load_cutscene(5) it would load cutscene 5 and make sure that each character moves and speaks the correct way
+    # i.e. if cutscene ID 5 was one line saying "(Khorynn)(FACE_LEFT)'Are you serious?'", Khorynn would face left and say 'Are you serious?'
+    # gonna have to get real used to using for x in y :3
     pass
 
 
@@ -305,6 +369,7 @@ def gen_starting_stats(character: Entity, first_generation: bool):
 def level_up(character: Entity, invisible: bool):
     global jobs, stats_order
     char_job = jobs[character.Job]
+    char_learned_ability = False
 
     character.Level += 1
     character.MaxHP += roll_stat(char_job["stats"][0], False)
@@ -365,44 +430,42 @@ def generate_party_member(party_level):
 
 def present_player_party_members(party_level):
     os.system(CLEAR)
-    input(f"You may choose one of two adventurers to join your party!")
-    char_1 = generate_party_member(party_level)
-    print(f"Option 1\n{char_1}\n")
-    char_2 = generate_party_member(party_level)
-    print(f"Option 2\n{char_2}\n")
-    cmd = input("(INPUT) Which option do you choose to join your party?")
-    while not isinstance(cmd, int):
-        try:
-            cmd = int(cmd)
-        except ValueError:
-            input("You must input a number!")
-            cmd = input("(INPUT) Which option do you choose to join your party?")
-    if cmd == 1:
-        input(f"You chose {char_1.Name}! They join your party!")
-        player_party.append(char_1)
-        input(player_party)
-    elif cmd == 2:
-        input(f"You chose {char_2.Name}! They join your party!")
-        player_party.append(char_2)
-        input(player_party)
+    if len(player_party) <= 3:
+        input(f"You may choose one of two adventurers to join your party!")
+        char_1 = generate_party_member(party_level)
+        print(f"Option 1\n{char_1}\n")
+        char_2 = generate_party_member(party_level)
+        print(f"Option 2\n{char_2}\n")
+        cmd = input("(INPUT) Which option do you choose to join your party?")
+        while not isinstance(cmd, int):
+            try:
+                cmd = int(cmd)
+            except ValueError:
+                input("You must input a number!")
+                cmd = input("(INPUT) Which option do you choose to join your party?")
+        if cmd == 1:
+            if len(player_party) >= 3:
+                input(f"You chose {char_1.Name}! They join your party!")
+                player_party.append(char_1)
+                input(player_party)
+        elif cmd == 2:
+            input(f"You chose {char_2.Name}! They join your party!")
+            player_party.append(char_2)
+            input(player_party)
+    elif len(player_party) > 3:
+        input("You are given the option to choose one of two party members, but your party is full!")
+        input("You leave in an awkward silence.")
 
 
 # \/\/ NEEDS REWORK \/\/
 def initiate_battle(player_party):
-    # enemies_to_spawn = random.randrange(1, 3)
-    # enemies_rolled = []
-    # for _ in range(0, enemies_to_spawn):
-    #     enemy_spawned = f"ENEMY_{random.randrange(1, 3)}"
-    #     enemies_rolled.append(enemy_spawned)
-    # print(enemies_rolled)
-    # run_encounter(player_party, enemies_rolled)
-    #
     #For now, I'm just going to have it call run_encounter similarly to how it would will in future
     global entities
     os.system(CLEAR)
     input("The party encounters a group of enemies!")
     input("An Enraged Wizard and a Stalwart Warrior draw near!")
-    run_encounter(player_party, [entities["EnemyWizard"], entities["EnemyWarrior"]])
+    return run_encounter(player_party, [entities["EnemyWizard"], entities["EnemyWarrior"]])
+
 
 def find_target(amount_of_enemies):
     target = input("Which numbered enemy would you like to attack?")
@@ -417,14 +480,14 @@ def find_target(amount_of_enemies):
     if target > 0:
         target = 0
     elif target > amount_of_enemies:
-        target = amount_of_enemies - 1
+        target = amount_of_enemies
     return target
 
 
 def run_encounter(friendlies: list[Entity], enemies: list[Entity]):
     initiative_list = find_turn_order(friendlies, enemies)
     os.system(CLEAR)
-    party_not_wiped = True
+    party_wiped = False
     enemies_are_dead = False
     enemies_spawned = []
     for enemy in enemies:
@@ -436,23 +499,14 @@ def run_encounter(friendlies: list[Entity], enemies: list[Entity]):
         for actor in initiative_list:
             os.system(CLEAR)
 
-            # flag if the enemies are all dead
-            if len(enemies) == 0:
-                enemies_are_dead = True
-    
-            # flag if the party isn't wiped
-            if len(friendlies) == 0:
-                party_not_wiped = False
-    
-            # check for the flags & win/lose the battle
-            if not party_not_wiped:
-                battle_cleanup(friendlies, enemies_spawned, False)
-                return None
-    
-            elif enemies_are_dead:
-                battle_cleanup(friendlies, enemies_spawned, True)
-                return None
-
+            if check_if_battle_won(friendlies,enemies) is not None:
+                if not check_if_battle_won(friendlies, enemies):
+                    party_wiped = True
+                    break
+                elif check_if_battle_won(friendlies, enemies):
+                    enemies_are_dead = True
+                    break
+            
             # Check if the previous turn resulted in someone going bloodthirsty
             if bloodthirsty_check is not None:
                 if bloodthirsty_check.EntityType == "PlayerCharacter":
@@ -461,81 +515,108 @@ def run_encounter(friendlies: list[Entity], enemies: list[Entity]):
                     input(f"{bloodthirsty_check.Name}'s primal rage dims!")
                     os.system(CLEAR)
                 elif bloodthirsty_check.EntityType == "Enemy":
-                    input("Something's gone wrong; this should not happen!")
+                    input(f"{bloodthirsty_check.Name} is bloodthirsty!")
+                    enemy_AI(friendlies, bloodthirsty_check, initiative_list)
+                    input(f"{bloodthirsty_check.Name}'s primal rage dims!")
+                    os.system(CLEAR)
                 bloodthirsty_check = None
-            
+                
+            if check_if_battle_won(friendlies,enemies) is not None:
+                if not check_if_battle_won(friendlies, enemies):
+                    party_wiped = True
+                    break
+                elif check_if_battle_won(friendlies, enemies):
+                    enemies_are_dead = True
+                    break
+                
             # Start of entity's turn
             input(f"It's {actor.Name}'s turn!")
             
             # Check whether entity is a PC
             if actor.EntityType == "PlayerCharacter":
                 # do PC shit
-                bloodthirsty_check = pc_turn_handler(actor, enemies, initiative_list, bloodthirsty_check)
+                bloodthirsty_check = pc_turn_handler(actor, enemies, initiative_list, False)
     
             # check if entity is an enemy
             if actor.EntityType == "Enemy":
                 # do enemy shit
-                bloodthirsty_check = enemy_AI(friendlies, actor, initiative_list, bloodthirsty_check)
-                # since there's only one PC rn, there's no need for it, and it breaks anyway
-                # if bloodthirsty_check is not None:
-                #     os.system(CLEAR)
-                #     input(f"{bloodthirsty_check.Name} is bloodthirsty!")
-                #     enemy_AI(friendlies, bloodthirsty_check, initiative_list)
-                #
-    
+                bloodthirsty_check = enemy_AI(friendlies, actor, initiative_list)
 
 
-def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity], bloodthirsty):
-    cmd = input("Command?\n").strip().lower()
-    
-    if cmd == "attack":
-        # find the target of melee
-        target = find_target(len(enemy))
-        # deal damage to it
-        damage = damage_calc(character, enemy[target], False)
-        input(f"You attack {enemy[target].Name} with your weapon, dealing {damage} damage!")
-        enemy[target].HP -= damage
-        if enemy[target].HP <= 0:
-            input(f"{enemy[target].Name} has fallen!")
-            turn_order.remove(enemy[target])
-            enemy.remove(enemy[target])
-            bloodthirsty = character
-    
-    elif cmd == "ability":
-        bloodthirsty = ability_handler(character, enemy, turn_order)
+        # check for the flags & win/lose the battle
+        if party_wiped:
+            return battle_cleanup(friendlies, enemies_spawned, False)
+
+        elif enemies_are_dead:
+            return battle_cleanup(friendlies, enemies_spawned, True)
+
+
+
+def pc_turn_handler(character, enemy: list[Entity], turn_order: list[Entity], is_bloodthirsty: bool = False):
+    bloodthirsty = None
+    turn_over = False
+
+    if not turn_over:
+        cmd = input("Command?\n").strip().lower()
         
-    elif cmd == "pass":
-        if bloodthirsty is not None:
-            input(f"{character.Name} is enraged! They must attack!")
-            pc_turn_handler(character, enemy, turn_order, bloodthirsty)
-            return bloodthirsty
-        input(f"{character.Name} waited to act!")
+        if cmd == "attack":
+            # find the target of melee
+            target = find_target(len(enemy))
+            # deal damage to it
+            damage = damage_calc(character, enemy[target], False)
+            input(f"You attack {enemy[target].Name} with your weapon, dealing {damage} damage!")
+            enemy[target].HP -= damage
+            if enemy[target].HP <= 0:
+                input(f"{enemy[target].Name} has fallen!")
+                turn_order.remove(enemy[target])
+                enemy.remove(enemy[target])
+                bloodthirsty = character
+            turn_over = True
+        
+        elif cmd == "ability":
+            bloodthirsty = ability_handler(character, enemy, turn_order)
+            turn_over = True
+            
+        elif cmd == "pass":
+            if is_bloodthirsty:
+                input(f"{character.Name} is enraged! They must attack!")
+                turn_over = False
+            else:
+                input(f"{character.Name} waited to act!")
+                turn_over = True
+            
+        else:
+            input("Invalid command!")
+            turn_over = False
+    
+    if turn_over:
         return bloodthirsty
-        
-    else:
-        input("Invalid command!")
+    elif not turn_over:
         pc_turn_handler(character, enemy, turn_order, bloodthirsty)
-        
-    return bloodthirsty
 
 
 def ability_handler(character, enemy: list[Entity], turn_order: list[Entity]):
-    # check if you have an abiltiy
+    bloodthirsty = None
+    # check if you have an ability
     if len(character.Abilities) >= 1:
+        
         # print the abilities and let you choose one
         print("Your available abilities:", character.Abilities.keys())
         chosen_ability = input("Which ability do you choose?")
         use_ability = globals()[character.Abilities[chosen_ability]["ABILITYFUNC"]]
+        
         # check if the input is an ability you have
         if chosen_ability in character.Abilities:
             # if it's not an offensive ability,
             # just do the function as any damage calcs involved will be in the corresponding function
             if character.Abilities[chosen_ability]["ABILITYTYPE"] == "NOT_OFFENSIVE":
+                
                 # !!!CRITICAL REMINDER!!!
                 # SINCE THE ABILITY HANDLER DOESN'T CHECK IF ANYTHING DIED, THE ABILITY FUNCTION HAS TO DEAL WITH IT
                 # THIS ONLY MATTERS IF THE ABILITY TYPE IS NOT_OFFENSIVE BUT STILL DEALS DAMAGE
                 # !!!CRITICAL REMINDER!!!
                 bloodthirsty = use_ability(character, enemy, turn_order)
+                
             # if it is an offensive ability, use it as a glorified damage calc
             elif character.Abilities[chosen_ability]["ABILITYTYPE"] == "OFFENSIVE":
                 target = find_target(len(enemy))
@@ -548,23 +629,33 @@ def ability_handler(character, enemy: list[Entity], turn_order: list[Entity]):
                     turn_order.remove(enemy[target])
                     enemy.remove(enemy[target])
 
-            if bloodthirsty == False:
-                ability_handler(character, enemy, turn_order)
         # if the input isn't something you have, give an error
         else:
             input("That is not an available ability!")
             pc_turn_handler(character, enemy, turn_order)
             return None
+            
     # if you don't have an ability, don't let them do anything
     else:
         input("you don't have an ability dummy")
         pc_turn_handler(character, enemy, turn_order)
+        return None
+
     return bloodthirsty
 
 
 ###
 
-def enemy_AI(character: list[Entity], enemy, turn_order, bloodthirsty):
+def check_if_battle_won(friendlies, enemies):
+    if len(friendlies) == 0:
+        return False
+    elif len(enemies) == 0:
+        return True
+    else:
+        return None
+
+def enemy_AI(character: list[Entity], enemy, turn_order):
+    bloodthirsty = None
     # choose a random target (advanced targeting comes later)
     enemy_target = random.randrange(0, len(character))
     # check if its mind is higher than its strength and use the higher stat in the damage calc
@@ -598,14 +689,14 @@ def damage_calc(attacker, defender, magic):
         print("It's a critical hit!")
 
     if not magic:
-        damage = int(random.uniform(0.9, 1.1) * (attacker.STR - (defender.RES * 0.5)) * critical)
+        damage = int(random.uniform(0.9, 1.1) * ((attacker.STR - (defender.RES * 0.9)) / 1.5) * critical)
         if damage >= 0:
             return damage
         else:
             return 0
 
     elif magic:
-        damage = int(random.uniform(0.9, 1.1) * (attacker.MND - (defender.RES * 0.3)) * critical)
+        damage = int(random.uniform(0.9, 1.1) * ((attacker.MND - (defender.RES * 0.6)) / 1.5) * critical)
         if damage >= 0:
             return damage
         else:
@@ -615,7 +706,7 @@ def damage_calc(attacker, defender, magic):
         return 0
 
 
-# \/\/ Probably needs a rework \/\/
+
 def battle_cleanup(friendlies, enemies, won_battle = True):
     os.system(CLEAR)
     if won_battle == True:
@@ -628,22 +719,10 @@ def battle_cleanup(friendlies, enemies, won_battle = True):
             input(f"You defeated {enemies[0].Name}!")
     if won_battle == False:
         input("Khorynn's party wiped! You lose!")
+        open_file("assets/sprites/peter_griffin_fortnite.jpeg")
     input("That's all I have for now. Thank you for playing!")
-    title_screen() 
-        
-        
-            
+    return won_battle
 
-#     if character["HP"] > 0:
-#         print("B A T T L E  W O N !")
-#         print(f"You defeated {enemy.Name}!")
-#         print(f"You got {exp} experience points!")
-#         input(f"You got {gold} gold pieces!")
-#         return True
-#     elif character["HP"] <= 0:
-#         print("Y O U  D I E D")
-#         input(" game over...")
-#         return False
 
 
 def skull_crusher(attacker, defender):
@@ -737,35 +816,31 @@ def heal(user, enemy, turn_order):
 
 
 def main():
-    began = title_screen()
-    while began:
-        for _ in range(13):
-            level_up(entities["Khorynn"], True)
-        if entities["EnemyWizard"].Level == 1:
-            for _ in range(10):
-                level_up(entities["EnemyWizard"], True)
-        if entities["EnemyWarrior"].Level == 1:
-            for _ in range(10):
-                level_up(entities["EnemyWarrior"], True)
-        present_player_party_members(10)
-        initiate_battle(player_party)
+    began = False
+    run = 1
     
+    while not began:
+        began = title_screen()
+    while began:
+        if run == 1:
+            for _ in range(9):
+                for guy in player_party:
+                    level_up(guy, True)
+        else:
+            for _ in range(10):
+                for guy in player_party:
+                    level_up(guy, True)
+        for _ in range(8 + run*2):
+            level_up(entities["EnemyWizard"], True)
+        for _ in range(8 + run*2):
+            level_up(entities["EnemyWarrior"], True)
+        present_player_party_members(find_party_level(player_party))
+        if not initiate_battle(player_party):
+            began = False
+        run += 1
 
-# start_encounter(player_party, enemy_party)
-# while enemies exist:
-#   - establish initial turn order
-#   - take first actor
-#   - decide what actor do
-#   - if victim dies, remove from appropriate list
-#   - if victim was last party member, go to GAME OVER
-#   - if victim was last enemy, return and clean up battle (process EXP, level ups, etc)
-#   - put actor back into turn order at appropriate place (i.e. end, or somewhere in the middle if you wanna be fancy)
-#
 
 
 
-
-
-
-if __name__ == "__main__":
+while __name__ == "__main__":
     main()

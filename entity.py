@@ -19,6 +19,8 @@ class Entity(object):
         #makes it so that whenever the class object itself is printed, it prints the below instead!
         return f'Name: {self.Name}\nLevel: {self.Level}\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nJOB: {self.Job}\nSTR: {self.STR}\nRES: {self.RES}\nMND: {self.MND}\nAGI: {self.AGI}'
 
+    
+
 
 def find_turn_order(pc_party: list[Entity], enemies_in_battle: list[Entity]):
     entity_list = []
@@ -28,6 +30,12 @@ def find_turn_order(pc_party: list[Entity], enemies_in_battle: list[Entity]):
         entity_list.append(actors)
     return sorted(entity_list, key=lambda x: x.AGI, reverse=True)
 
+def find_party_level(party):
+    party_levels = []
+    for member in party:
+        party_levels.append(member.Level)
+    party_levels = sorted(party_levels, reverse=True)
+    return party_levels[0]
 
 ###
 
