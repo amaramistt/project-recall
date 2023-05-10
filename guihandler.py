@@ -1,5 +1,5 @@
-import tkinter
-from tkinter import ttk
+from tkinter import ttk, Tk
+
 
 # Create the app class
 class App:
@@ -25,8 +25,9 @@ class App:
         # If button is pressed, then set press text to Hello there user! 
         self.press.config(text="Hello there user!")
 
+
 # Make the master (root window)
-root = tk.Tk()
+root = Tk()
 # Make the app and pass it the master (root window)
 app = App(root)
 # Run the master (root window)
