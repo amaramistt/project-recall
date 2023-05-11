@@ -1,3 +1,11 @@
+stat_modifier_table = {
+    -2: 0.5,
+    -1: 0.75,
+    0: 1,
+    1: 1.5,
+    2: 2
+}
+
 class Entity(object):
     def __init__(self, template):
         self.Name = template["Name"]
@@ -22,12 +30,43 @@ class Entity(object):
             self.Job = template["Job"]  
             self.MasteredJobs = []
             self.Items = {}
+        self.StatChanges = {
+            "STR": 0,
+            "RES": 0,
+            "MND": 0,
+            "AGI": 0
+        }
+        self.EquipmentStats = {
+            "Max HP": 0,
+            "Max MP": 0,
+            "STR": 0,
+            "RES": 0,
+            "MND": 0,
+            "AGI": 0
+        }
 
     def __repr__(self):
         #makes it so that whenever the class object itself is printed, it prints the below instead!
         return f'\nName: {self.Name}\nLevel: {self.Level}\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nJOB: {self.Job}\nSTR: {self.STR}\nRES: {self.RES}\nMND: {self.MND}\nAGI: {self.AGI}'
 
-    
+    def get_strength(self):
+        return int(self.STR * stat_modifier_table[self.StatChanges["STR"]]) + self.EquipmentStats["STR"]
+
+    def get_res(self):
+        return int(self.RES * stat_modifier_table[self.StatChanges["RES"]]) + self.EquipmentStats["RES"]
+
+    def get_mind(self):
+        return int(self.MND * stat_modifier_table[self.StatChanges["MND"]]) + self.EquipmentStats["MND"]
+
+    def get_agi(self):
+        return int(self.AGI * stat_modifier_table[self.StatChanges["AGI"]]) + self.EquipmentStats["AGI"]
+
+    def change_stat(self, stat_to_change, stages_to_increment):
+        new_value = self.StatChanges[stat_to_change] + stages_to_increment
+        new_value = new_value if new_value <= 2 else 2
+        new_value = new_value if new_value >= -2 else -2
+
+        self.StatChanges[stat_to_change] = new_value    
 
 
 def find_turn_order(pc_party: list[Entity], enemies_in_battle: list[Entity]):

@@ -14,6 +14,7 @@ import os
 import sys
 import subprocess
 import random
+import copy
 from entity import Entity, find_turn_order, find_party_level
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
@@ -174,13 +175,13 @@ entities = {
         "Name": "Gelatinous King",
         "EntityType": "BossEnemy",
         "Level": 30,
-        "Max HP": 2000,
+        "Max HP": 4000,
         "Max MP": 50,
         "STR": 270,
         "RES": 160,
         "MND": 100,
         "AGI": 210,
-        "HP": 1300,
+        "HP": 4000,
         "MP": 50,
         "BossLogic": "king_slime",
         "Abilities": {}
@@ -210,34 +211,37 @@ player_party = []
 # !!! IN ORDER !!!
 jobs = {
     "warrior": {
-        "stats": [4, 1, 4, 3, 1, 2],
+        "stats": [4, 1, 4, 3, 1, 1],
         "dependencies": [],
         "abilities": {
             10: "skullcrusher"
         }
     },
     "just a guy": {
-        "stats": [1, 1, 1, 1, 1, 1],
+        "stats": [3, 1, 1, 2, 1, 3],
         "abilities": {
             10: "slap"
         }
     },
     "mage": {
-        "stats": [1, 3, 1, 1, 3, 2],
+        "stats": [2, 3, 1, 2, 4, 3],
         "abilities": {
             10: "fireball"
         }
     },
     "priest": {
-        "stats": [1, 3, 2, 1, 2, 2],
-        "abilities": {}
+        "stats": [3, 2, 2, 2, 2, 2],
+        "abilities": {
+            5: "heal",
+            10: "resilienceprayer"
+        }
     },
     "thief": {
-        "stats": [2, 1, 2, 2, 1, 3],
+        "stats": [3, 1, 3, 2, 1, 4],
         "abilities": {}
     },
     "monk": {
-        "stats": [2, 1, 3, 1, 3, 3],
+        "stats": [3, 1, 3, 3, 2, 3],
         "abilities": {
             10: "focus",
         }
@@ -252,10 +256,8 @@ jobs = {
 # value = ability definition
 
 # targets = [
-#     "TARGET_VICTIM",     # the thing the character is currently directly engaged in combat with
 #     "TARGET_SELF",       # the character
-#     "TARGET_MOB_ANY",    # a random non-friendly target
-#     "TARGET_MOB_GROUP",  # a single group (what is a group? TBD)
+#     "TARGET_MOB_ANY",    # any non-friendly target
 #     "TARGET_MOB_ALL",    # all non-friendly
 #     "TARGET_DIRECT",     # victim must be chosen explicitly, foe/friendly not a factor with this target style
 #     "TARGET_PARTY",      # victim must be chosen, must be in player's party
@@ -283,6 +285,16 @@ abilities = {
         "callback": "slap",
         "target": "TARGET_SELF"
     },
+    "heal": {
+        "name": "Heal",
+        "callback": "heal",
+        "target": "TARGET_PARTY"
+    },
+    "resilienceprayer": {
+        "name": "Resilience Prayer",
+        "callback": "resilience_prayer",
+        "target": "TARGET_PARTY_ALL"
+    }
 }
 
 
@@ -313,31 +325,31 @@ def debug_starting_stats():
     debug = generate_party_member(1)
     debug.Job = "just a guy"
     gen_starting_stats(debug, True)
-    print(f"Base Stat 1\nLevel 1:{debug.STR}")
+    print(f"Base Stat 1\nLevel 1:{debug.get_strength()}")
     lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.STR}")
+    print(f"Level 10: {debug.get_strength()}")
     lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.STR}")
+    print(f"Level 20: {debug.get_strength()}")
     lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.STR}\n")
+    input(f"Level 30: {debug.get_strength()}\n")
     os.system(CLEAR)
     gen_starting_stats(debug, True)
-    print(f"Base Stat 2\nLevel 1:{debug.RES}")
+    print(f"Base Stat 2\nLevel 1:{debug.get_res()}")
     lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.RES}")
+    print(f"Level 10: {debug.get_res()}")
     lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.RES}")
+    print(f"Level 20: {debug.get_res()}")
     lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.RES}")
+    input(f"Level 30: {debug.get_res()}")
     os.system(CLEAR)
     gen_starting_stats(debug, True)
-    print(f"Base Stat 3\nLevel 1: {debug.AGI}")
+    print(f"Base Stat 3\nLevel 1: {debug.get_agi()}")
     lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.AGI}")
+    print(f"Level 10: {debug.get_agi()}")
     lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.AGI}")
+    print(f"Level 20: {debug.get_agi()}")
     lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.AGI}")
+    input(f"Level 30: {debug.get_agi()}")
     os.system(CLEAR)
     debug.Job = "warrior"
     gen_starting_stats(debug, True)
@@ -526,7 +538,6 @@ def level_up(character: Entity, suppress_output: bool = False):
         ability_to_learn = char_job["abilities"][character.Level]
         character.Abilities[ability_to_learn] = abilities[ability_to_learn]
         ability_messages = f"{character.Name} learned {abilities[ability_to_learn]['name']}!"
-        # there is a better way to do this and I do not know it
     
     if not suppress_output:
         input(f"{character.Name} Leveled Up!\n{ability_messages}")
@@ -572,39 +583,38 @@ def generate_party_member(party_level):
 def present_player_party_members(party_level):
     os.system(CLEAR)
 
-    input(f"You may choose one of two adventurers to join your party!")
-    char_1 = generate_party_member(party_level)
-    print(f"Option 1\n{char_1}\n")
-    char_2 = generate_party_member(party_level)
-    print(f"Option 2\n{char_2}\n")
-    cmd = input("(INPUT) Which option do you choose to join your party?")
-    done = False
-    while not isinstance(cmd, int) and not done:
-        try:
-            cmd = int(cmd)
-        except ValueError:
-            input("You must input a number!")
-            cmd = input("(INPUT) Which option do you choose to join your party?")
-        if cmd == 1:
-            if len(player_party) <= 3:
-                input(f"You chose {char_1.Name}! They join your party!")
-                player_party.append(char_1)
+    if len(player_party) <= 3:
+        input(f"You may choose one of two adventurers to join your party!")
+        char_1 = generate_party_member(party_level)
+        print(f"Option 1\n{char_1}\n")
+        char_2 = generate_party_member(party_level)
+        print(f"Option 2\n{char_2}\n")
+        cmd = input("(INPUT) Which option do you choose to join your party?")
+        done = False
+        while not isinstance(cmd, int) and not done:
+            try:
+                cmd = int(cmd)
+            except ValueError:
+                input("You must input a number!")
+                cmd = input("(INPUT) Which option do you choose to join your party?")
+            if cmd == 1:
+                if len(player_party) <= 3:
+                    input(f"You chose {char_1.Name}! They join your party!")
+                    player_party.append(char_1)
+                    input(player_party)
+            elif cmd == 2:
+                input(f"You chose {char_2.Name}! They join your party!")
+                player_party.append(char_2)
                 input(player_party)
-        elif cmd == 2:
-            input(f"You chose {char_2.Name}! They join your party!")
-            player_party.append(char_2)
-            input(player_party)
-    # TODO: implement this correctly
-    # elif len(player_party) > 3:
-    #     input("You are given the option to choose one of two party members, but your party is full!")
-    #     input("You leave in an awkward silence.")
-            done = True
-        elif cmd == 3:
-            input(f"You chose the secret, third option of going solo. YOLO!")
-            done = True
-        else:
-            input("You seem to have misinputted. Please input 1 or 2 relative to the option you want to choose.")
-
+                done = True
+            elif cmd == 3:
+                input(f"You chose the secret, third option of going solo. YOLO!")
+                done = True
+            else:
+                input("You seem to have misinputted. Please input 1 or 2 relative to the option you want to choose.")
+    elif len(player_party) > 3:
+        input("You are given the option to choose one of two party members, but your party is full!")
+        input("You leave in an awkward silence.")
 
 # \/\/ NEEDS REWORK \/\/
 def initiate_battle(player_party, enemy_pool):
@@ -613,17 +623,25 @@ def initiate_battle(player_party, enemy_pool):
     os.system(CLEAR)
     input("The party encounters a group of enemies!")
     if enemy_pool == 1:
+        EnragedWizard = copy.deepcopy(entities["EnemyWizard"])
+        StalwartWarrior = copy.deepcopy(entities["EnemyWarrior"])
         input("An Enraged Wizard and a Stalwart Warrior draw near!")
-        return run_encounter(player_party, [entities["EnemyWizard"], entities["EnemyWarrior"]])
+        return run_encounter(player_party, [EnragedWizard, StalwartWarrior])
     elif enemy_pool == 2:
+        EnragedWarrior = copy.deepcopy(entities["EnragedWarrior"])
+        StalwartWizard = copy.deepcopy(entities["StalwartWizard"])
         input("An Enraged Warrior and a Stalwart Wizard draw near!")
-        return run_encounter(player_party, [entities["EnragedWarrior"], entities["StalwartWizard"]])
+        return run_encounter(player_party, [EnragedWarrior, StalwartWizard])
     elif enemy_pool == 3:
+        DisgracedMonk = copy.deepcopy(entities["DisgracedMonk"])
+        SorcererSupreme = copy.deepcopy(entities["SorcererSupreme"])
+        CraftyThief = copy.deepcopy(entities["CraftyThief"])
         input("A Disgraced Monk, Sorcerer Supreme, and Crafty Thief draw near!")
-        return run_encounter(player_party, [entities["DisgracedMonk"], entities["SorcererSupreme"], entities["CraftyThief"]])
+        return run_encounter(player_party, [DisgracedMonk, SorcererSupreme, CraftyThief])
     elif enemy_pool == 4:
+        GelatinousKing = copy.deepcopy(entities["GelatinousKing"])
         input("You face down the boss of the floor; the Gelatinous King!")
-        return run_encounter(player_party, [entities["GelatinousKing"]])
+        return run_encounter(player_party, [GelatinousKing])
     else:
         input("You didn't, actually, because THE DEV FORGOT TO SET THE ENEMY POOL LIKE A DUMBASS!")
         return False
@@ -644,7 +662,7 @@ def find_target(amount_of_enemies):
     if target < 0:
         target = 0
     elif target > amount_of_enemies:
-        target = amount_of_enemies
+        target = amount_of_enemies - 1
     return target
 
 
@@ -731,20 +749,20 @@ def pc_turn_handler(player_party, character, enemy: list[Entity], turn_order: li
     bloodthirsty = None
     turn_is_over = False
 
-    if not turn_is_over:
+    while not turn_is_over:
         cmd = input("Command?\n").strip().lower()
         
         if cmd == "attack":
             # find the target of melee
-            target = find_target(len(enemy))
+            target = enemy[find_target(len(enemy))]
             # deal damage to it
-            damage = damage_calc(character, enemy[target], False)
-            input(f"You attack {enemy[target].Name} with your weapon, dealing {damage} damage!")
-            enemy[target].HP -= damage
-            if enemy[target].HP <= 0:
-                input(f"{enemy[target].Name} has fallen!")
-                turn_order.remove(enemy[target])
-                enemy.remove(enemy[target])
+            damage = damage_calc(character, target, False)
+            input(f"You attack {target.Name} with your weapon, dealing {damage} damage!")
+            target.HP -= damage
+            if entity_is_dead(target):
+                input(f"{target.Name} has fallen!")
+                turn_order.remove(target)
+                enemy.remove(target)
                 bloodthirsty = character
             turn_is_over = True
         
@@ -762,12 +780,9 @@ def pc_turn_handler(player_party, character, enemy: list[Entity], turn_order: li
             
         else:
             input("Invalid command!")
-            turn_is_over = False
+
+    return bloodthirsty
     
-    if turn_is_over:
-        return bloodthirsty
-    elif not turn_is_over:
-        pc_turn_handler(character, enemy, turn_order, bloodthirsty)
 
 
 def ability_handler(player_party, character, enemy: list[Entity], turn_order: list[Entity]):
@@ -781,39 +796,28 @@ def ability_handler(player_party, character, enemy: list[Entity], turn_order: li
         use_ability = None
         while use_ability is None:
             try:
-                use_ability = globals()[character.Abilities[chosen_ability]["ABILITYFUNC"]]
+                use_ability = globals()[character.Abilities[chosen_ability]["callback"]]
             except KeyError:
                 chosen_ability = input("That ability isn't in your learned abilities! Did you change your mind? Input 'back' to go back.")
                 if chosen_ability.strip().lower() == "back":
                     pc_turn_handler(player_party, character, enemy, turn_order)
                     return None
                     break
-        if character.Abilities[chosen_ability]["ABILITYTYPE"] == "NOT_OFFENSIVE":
-                
-            # !!!CRITICAL REMINDER!!!
-            # SINCE THE ABILITY HANDLER DOESN'T CHECK IF ANYTHING DIED, THE ABILITY FUNCTION HAS TO DEAL WITH IT
-            # THIS ONLY MATTERS IF THE ABILITY TYPE IS NOT_OFFENSIVE BUT STILL DEALS DAMAGE
-            # !!!CRITICAL REMINDER!!!
-            bloodthirsty = use_ability(player_party, character, enemy, turn_order)
-                
-        # if it is an offensive ability, use it as a glorified damage calc
-        elif character.Abilities[chosen_ability]["ABILITYTYPE"] == "OFFENSIVE":
-            target = find_target(len(enemy))
-            damage = use_ability(character, enemy[target])
-            input(f"You deal {damage} damage!")
-            enemy[target].HP -= damage
-            if enemy[target].HP <= 0:
-                input(f"{enemy[target].Name} Has Fallen!")
-                bloodthirsty = character
-                turn_order.remove(enemy[target])
-                enemy.remove(enemy[target])
+                    
+        # !!! CRITICAL REMINDER !!!
+        # Since checking if anybody's died is too much work to put in here, YOU MUST DO IT IN THE ABILITY SCRIPT!!
+        # Forgetting to check if anything's died when you deal damage that *COULD* be lethal is DUMB!!!
+        # !!! CRITICAL REMINDER !!!
+        bloodthirsty = use_ability(player_party, character, enemy, turn_order)
             
     # if you don't have an ability, don't let them do anything
     else:
         input("you don't have an ability dummy")
         pc_turn_handler(player_party, character, enemy, turn_order)
         return None
-
+    if bloodthirsty == False:
+        pc_turn_handler(player_party, character, enemy, turn_order)
+        return None
     return bloodthirsty
 
 
@@ -832,7 +836,7 @@ def enemy_AI(character: list[Entity], enemy, turn_order):
     # choose a random target (advanced targeting comes later)
     enemy_target = random.randrange(0, len(character))
     # check if its mind is higher than its strength and use the higher stat in the damage calc
-    if enemy.STR > enemy.MND:
+    if enemy.get_strength() > enemy.get_mind():
         enemy_damage = damage_calc(enemy, character[enemy_target], False)
         input(f"The enemy attacks with their weapon and deals {enemy_damage} damage to {character[enemy_target].Name}!")
     else:
@@ -866,7 +870,7 @@ def damage_calc(attacker, defender, magic: bool = False, crit_enabled: bool = Tr
         print("It's a critical hit!")
 
     if not magic:
-        damage = ((attacker.STR * level_differential) - ((defender.RES * 0.9) / level_differential)) * critical
+        damage = ((attacker.get_strength() * level_differential) - ((defender.get_res() * 0.9) / level_differential)) * critical
         damage = int(damage * random.uniform(0.9, 1.1))
         if damage >= 0:
             return damage
@@ -874,7 +878,7 @@ def damage_calc(attacker, defender, magic: bool = False, crit_enabled: bool = Tr
             return 0
 
     elif magic:
-        damage = (attacker.MND * level_differential) - ((defender.RES * 0.7) / level_differential) * critical
+        damage = (attacker.get_mind() * level_differential) - ((defender.get_res() * 0.7) / level_differential) * critical
         damage = int(damage * random.uniform(0.9, 1.1))
         if damage >= 0:
             return damage
@@ -884,7 +888,14 @@ def damage_calc(attacker, defender, magic: bool = False, crit_enabled: bool = Tr
         print("You forgot to set magic, dumbass.")
         return 0
 
-
+def entity_is_dead(entity):
+    if entity.HP <= 0:
+        entity.HP = 0
+    if entity.HP == 0:
+        return True
+    else:
+        return False
+    
 
 def battle_cleanup(friendlies, enemies, won_battle = True):
     os.system(CLEAR)
@@ -896,6 +907,11 @@ def battle_cleanup(friendlies, enemies, won_battle = True):
             input("")
         else:
             input(f"You defeated {enemies[0].Name}!")
+        for pc in friendlies:
+            pc.StatChanges["STR"] = 0
+            pc.StatChanges["RES"] = 0
+            pc.StatChanges["MND"] = 0
+            pc.StatChanges["AGI"] = 0
     if won_battle == False:
         input("Khorynn's party wiped! You lose!")
         open_file("assets/sprites/peter_griffin_fortnite.jpeg")
@@ -903,43 +919,62 @@ def battle_cleanup(friendlies, enemies, won_battle = True):
 
 
 
-def skull_crusher(attacker, defender):
-    if attacker.MP < 3:
-        input(f"{attacker.Name} didn't have enough MP to use Skull Crusher!")
+def skull_crusher(player_party, user, enemy, inititive_list):
+    bloodthirsty = None
+    if user.MP < 3:
+        input(f"{user.Name} didn't have enough MP to use Skull Crusher!")
         return False
-    input(f"{attacker.Name} uses Skull Crusher!")
-    attacker.MP -= 3
+    target = enemy[find_target(len(enemy))]
+    input(f"{user.Name} uses Skull Crusher!")
+    user.MP -= 3
     input("They siphon 3 points of MP!")
-    defense_ignored = int(defender.RES * 0.8)
-    defender.RES -= defense_ignored
-    input(f"{attacker.Name} slams their weapon onto {defender.Name}'s head with a horrifying CRACK!")
-    damage = damage_calc(attacker, defender, False)
-    defender.RES += defense_ignored
-    return int(damage)
+    input(f"{user.Name} slams their weapon onto {target.Name}'s head with a horrifying CRACK!")
+    damage = int(damage_calc(user, target, False))
+    input(f"They deal {damage} damage!")
+    target.HP -= damage
+    if entity_is_dead(target):
+        input(f"{target.Name} has fallen!")
+        enemy.remove(target)
+        inititive_list.remove(target)
+        bloodthirsty = user
+    else:
+        input(f"{target.Name}'s resilience was lowered one stage!")
+        target.change_stat("RES", -1)
+    return bloodthirsty
 
 
-def forfireball(attacker, defender):
-    if attacker.MP < 40:
+def forfireball(player_party, user, enemy, inititive_list):
+    if user.MP < 40:
+        input(f"{user.Name} tried to use Fireball, but its immense mana cost proved too much for them!")
         return False
     else:
-        attacker.MP -= 40
-        input(f"{attacker.Name} casts Fireball!")
-        defense_ignored = defender.RES
+        defender = enemy[find_target(len(enemy))]
+        user.MP -= 40
+        input(f"{user.Name} casts Fireball!")
+        defense_ignored = defender.get_res()
         defender.RES -= defense_ignored
-        input("Even the most powerful armor shatters when the shockwave hits it!")
-        damage = damage_calc(attacker, defender, True) * 2
+        input("Even the most powerful defenses shatter when the shockwave hits it!")
+        damage = damage_calc(user, defender, True) * 2
         defender.RES += defense_ignored
-        return damage
+        input(f"{defender.Name} takes {damage} damage!")
+        defender.HP -= damage
+        if entity_is_dead(defender):
+            input(f"{defender.Name} has fallen!")
+            enemy.remove(defender)
+            inititive_list.remove(defender)
+            return user
+        return None
 
 
 def focus(player_party, user, enemy, turn_order):
-    mind_multiple = (user.MND * 0.05) + 1
+    mind_multiple = (user.get_mind() * 0.05) + 1
     if mind_multiple > 5:
         mind_multiple = 5
     if user.MP < 5:
         input(f"{user.Name} tried to use Focus, but they didn't have enough MP!")
         return False
     else:
+        user.MP -= 5
         input(f"{user.Name} used Focus!")
         input("They take a deep breath and center their thoughts...")
         input("They feel better already!")
@@ -948,11 +983,8 @@ def focus(player_party, user, enemy, turn_order):
             health_to_heal = user.MaxHP - user.HP
         input(f"{user.Name} heals {health_to_heal} HP!")
         user.HP += health_to_heal
-        input("They gain a boost to Mind!")
-        mind_to_gain = int(user.MND * 0.1)
-        if mind_to_gain == 0:
-            mind_to_gain = 1
-        user.MND += mind_to_gain
+        input("They gain a temporary boost to Mind!")
+        user.change_stat("MND", 1)
 
 
 def slap(player_party, user, enemy, turn_order):
@@ -961,7 +993,7 @@ def slap(player_party, user, enemy, turn_order):
         f"{user.Name} thinks they left their refridgerator running!",
         f"{user.Name} suddenly forgets everything they were doing!",
         f"{user.Name} suddenly finds images of malformed monkeys very valuable!",
-        f"{user.Name} realizes that maybe their parents were right about their worthlessness!",
+        f"{user.Name} realizes that their parents were right about their worthlessness!",
         f"{user.Name} remembers that one cringy thing they did when they were a kid!",
         f"{user.Name} shits the bed!"
     ]
@@ -969,18 +1001,19 @@ def slap(player_party, user, enemy, turn_order):
     input(f"{chosen_thought}")
     input("They slap themselves to regain composure!")
     damage = damage_calc(user, user, False)
-    mind_to_gain = int(user.MND*0.05)
-    input(f"They suffer {damage} damage, but their mind settles!")
+    input(f"They suffer {damage} damage!")
     user.HP -= damage
-    if user.HP <= 0:
-        input(f"{user.Name} killed themselves!")
+    if entity_is_dead(user):
+        input(f"{user.Name} killed themself!")
         turn_order.remove(user)
-        
-    user.MND += mind_to_gain
+        player_party.remove(user)
+    else:
+        input(f"{user.Name}'s mind settles!")
+        user.change_stat("MND", 1)
     return None
     
 def heal(player_party, user, enemy, turn_order):
-    if user.MP > 6:
+    if user.MP < 6:
         input(f"{user.Name} didn't have enough MP to use Heal!")
         return False
     else:
@@ -995,13 +1028,22 @@ def heal(player_party, user, enemy, turn_order):
         input(f"{user.Name} focuses on calming things...")
         input("They siphon 6 MP!")
         input(f"{user.Name} casts Heal!")
-        HP_to_heal = int(user.MaxHP * 0.2) + int(user.MND * 1.5)
+        HP_to_heal = int(user.MaxHP * 0.2) + int(user.get_mind() * 1.5)
         HP_to_heal = pc_to_heal.MaxHP - pc_to_heal.HP if pc_to_heal.HP + HP_to_heal > pc_to_heal.MaxHP else HP_to_heal
         input(f"They heal {pc_to_heal.Name} for {HP_to_heal} HP!")
         pc_to_heal.HP += HP_to_heal
-        return True
+        return None
 
-
+def resilience_prayer(player_party, user, enemy, turn_order):
+    if user.MP < 20:
+        input(f"{user.Name} didn't have enough MP to use Resilience Prayer!")
+        return False
+    else:
+        input(f"{user.Name} kneels down and prays for everyone to be safe...")
+        for pc in player_party:
+            pc.change_stat("RES", 1)
+        input("Everyone feels a little tougher! Party's resilience increases one stage!")
+        return None
 
 def king_slime(player_party, gel_king, enemies, initiative_list, enemies_spawned):
     bloodthirsty = None
@@ -1022,36 +1064,40 @@ def king_slime(player_party, gel_king, enemies, initiative_list, enemies_spawned
 
     if gel_king.HP < int(gel_king.MaxHP * 0.8):
         if king_slime_spawn_phase_1_happened == False:
+            GelatinousServant = copy.deepcopy(entities["GelatinousServant"])
             input("The Gelatinous King's gel wobbles...\nA Gelatinous Servent erupts from the King and joins the fight!")
-            enemies.append(entities["GelatinousServant"])
-            initiative_list.append(entities["GelatinousServant"])
-            enemies_spawned.append(entities["GelatinousServant"])
+            enemies.append(GelatinousServant)
+            initiative_list.append(GelatinousServant)
+            enemies_spawned.append(GelatinousServant)
             king_slime_spawn_phase_1_happened = True
             
     if gel_king.HP < int(gel_king.MaxHP * 0.6):
         if king_slime_spawn_phase_2_happened == False:
+            GelatinousServant = copy.deepcopy(entities["GelatinousServant"])
             input("The Gelatinous King ejects another Servant from its wounded flesh!")
-            enemies.append(entities["GelatinousServant"])
-            initiative_list.append(entities["GelatinousServant"])
-            enemies_spawned.append(entities["GelatinousServant"])
+            enemies.append(GelatinousServant)
+            initiative_list.append(GelatinousServant)
+            enemies_spawned.append(GelatinousServant)
             king_slime_spawn_phase_2_happened = True  
             
     if gel_king.HP < int(gel_king.MaxHP * 0.4):
         if king_slime_spawn_phase_3_happened == False:
             input("The Gelatinous King is falling apart! Two servants are ripped from the main body!")
             for _ in range(2):
-                enemies.append(entities["GelatinousServant"])
-                initiative_list.append(entities["GelatinousServant"])
-                enemies_spawned.append(entities["GelatinousServant"])
+                GelatinousServant = copy.deepcopy(entities["GelatinousServant"])                
+                enemies.append(GelatinousServant)
+                initiative_list.append(GelatinousServant)
+                enemies_spawned.append(GelatinousServant)
             king_slime_spawn_phase_3_happened = True
                 
     if gel_king.HP < int(gel_king.MaxHP * 0.2):
         if king_slime_spawn_phase_4_happened == False:
-            input("The Gelatinous King is almost dead! Three Gelatinous Servants stream like a river from it!")
+            input("The Gelatinous King is almost dead!\nThree Gelatinous Servants stream like a river from its flesh!")
             for _ in range(3):
-                enemies.append(entities["GelatinousServant"])
-                initiative_list.append(entities["GelatinousServant"])
-                enemies_spawned.append(entities["GelatinousServant"])   
+                GelatinousServant = copy.deepcopy(entities["GelatinousServant"])
+                enemies.append(GelatinousServant)
+                initiative_list.append(GelatinousServant)
+                enemies_spawned.append(GelatinousServant)   
             king_slime_spawn_phase_4_happened = True
 
     enemy_target = None
@@ -1071,9 +1117,9 @@ def king_slime(player_party, gel_king, enemies, initiative_list, enemies_spawned
     # check if the character died
     if enemy_target.HP <= 0:
         input(f"{enemy_target.Name} Has Fallen!")
-        bloodthirsty = enemy
-        turn_order.remove(enemy_target)
-        character.remove(enemy_target)
+        bloodthirsty = gel_king
+        initiative_list.remove(enemy_target)
+        player_party.remove(enemy_target)
     return bloodthirsty    
 
 def main():
@@ -1083,6 +1129,8 @@ def main():
     while not began:
         began = title_screen()
     while began:
+
+        
         if run == 1:
             os.system(CLEAR)
             input("Welcome to Project Recall!\nAt this moment, this game is mostly just a battle simulator.")
@@ -1090,17 +1138,27 @@ def main():
             input("The party members you find are entirely randomized!\nMake sure to see what each class does in the tutorial if you haven't already.")
             input("Have fun! <3")
             os.system(CLEAR)
+            
+        elif run == 2:
+            for _ in range(8):
+                for guy in player_party:
+                    level_up(guy, True)
+            for guy in player_party:
+                level_up(guy, True)
+                
         elif run == 5:
             input("Congratulations! You beat the game!")
             input("That's all I have for now. Thanks for playing!")
             began = False
             break
+            
         else:
             for _ in range(9):
                 for guy in player_party:
                     level_up(guy, True)
             for guy in player_party:
                 level_up(guy, False)
+                
         present_player_party_members(find_party_level(player_party))
         if not initiate_battle(player_party, run):
             began = False
