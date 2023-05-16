@@ -25,44 +25,41 @@ import entity
 import battle
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
-king_slime_spawn_phase_1_happened = False
-king_slime_spawn_phase_2_happened = False
-king_slime_spawn_phase_3_happened = False
-king_slime_spawn_phase_4_happened = False
-
-callback_triggers = {
-    "callback_entity_is_hit": [],
-    "callback_pc_is_hit": [],
-    "callback_enemy_is_hit": [],
-    "callback_entity_is_dead": [],
-    "callback_pc_is_dead": [],
-    "callback_enemy_is_dead": [],
-}
 player_party = []
 
+callback_triggers = {
+    "callback_entity_is_hit": [], # KWARGS FORMAT: entity_hit, entity_attacker, player_party, enemy_party
+    "callback_pc_is_hit": [], # KWARGS FORMAT: entity_hit, entity_attacker, player_party, enemy_party
+    "callback_enemy_is_hit": [], # KWARGS FORMAT: entity_hit, entity_attacker, player_party, enemy_party
+    "callback_entity_is_dead": [], # KWARGS FORMAT: entity_dead, entity_attacker
+    "callback_pc_is_dead": [], # KWARGS FORMAT: entity_dead, entity_attacker
+    "callback_enemy_is_dead": [], # KWARGS FORMAT: entity_dead, entity_attaker
+    "callback_entity_is_targeted": [], #KWARGS FORMAT: entity_targeted, entity_attacking, attacker_action
+    "callback_pc_is_targeted": [], #KWARGS FORMAT: entity_targeted, entity_attacking, attacker_action
+    "callback_enemy_is_targeted": [], #KWARGS FORMAT: entity_targeted, entity_attacking, attacker_action
+    "callback_spell_is_casted": [], #KWARGS FORMAT: entity_casting, enitity_targeted, spell_casted
+    "callback_stat_is_changed": [], #KWARGS FORMAT: entity_buffing_debuffing, stat_changed, change_stages
+    "callback_bloodthirsty_triggered": [], #KWARGS FORMAT: entity_bloodthirsty
+}
 
+def get_callback_triggers_map():
+    return callback_triggers
 def add_callback(trigger, callback):
     # Takes a given "stringified" callback and adds it to the value of a given trigger in callback_triggers
     # To add a callback that should happen every time some*thing* dies:
     # add_callback("callback_entity_is_dead", "something_died")
-    trigger.append(callback)
+    callback_triggers[trigger].append(callback)
 
-def run_callbacks(trigger, callback_args = None):
+def remove_callback(trigger, callback):
+    callback_triggers[trigger].remove(callback)
+
+def run_callbacks(trigger, **kwargs):
     # Takes a given trigger and excecutes all of the callbacks in the trigger's value in callback_triggers
-    #
-    # callback_args is callback-dependent; some callbacks need some extra info to function
-    # ex: take a function that hits the attacking enemy for 1 HP every time a character gets hit called spiked_armor()
-    # "spiked_armor" would be in callback_pc_is_hit and would be called by run_callbacks("callback_pc_is_hit", attacker)
-    # spiked_armor() would deal damage to the passed attacker
-    #
-    # issues that needs resolving: 
-    # what if another callback was in callback_pc_is_hit that doesn't take anything?
-    # what if another callback is expecting something different as an argument?
-    # what if another callback expects more than two args?
-    # 
-    for callback in trigger:
+    # kwargs are callback-dependent; each one has a different format that gives things that they might need
+    # check the callback_triggers dict for the format
+    for callback in callback_triggers[trigger]:
         run_callback = globals()[callback]
-        run_callback()
+        run_callback(**kwargs)
 
 def open_file(filename):
     if sys.platform == "win32":
@@ -180,230 +177,6 @@ def load_cutscene(cutscene_ID):
 
 ###
 
-
-# 1 -> 4-5 start
-# 2 -> 8-10 start
-# 3 -> 12-15 start
-# 4 -> 16-20 start
-
-
-
-def skull_crusher(player_party, user, enemy, inititive_list):
-    bloodthirsty = None
-    
-    if user.MP < 3:
-        input(f"{user.Name} didn't have enough MP to use Skull Crusher!")
-        return False
-        
-    target = enemy[find_target(len(enemy))]
-    input(f"{user.Name} uses Skull Crusher!")
-    user.MP -= 3
-    input("They siphon 3 points of MP!")
-    input(f"{user.Name} slams their weapon onto {target.Name}'s head with a horrifying CRACK!")
-    damage = int(damage_calc(user, target, False))
-    input(f"They deal {damage} damage!")
-    target.HP -= damage
-    run_callbacks("callback_entity_is_hit")
-    run_callbacks("callback_enemy_is_hit")
-    if entity_is_dead(target):
-        input(f"{target.Name} has fallen!")
-        run_callbacks("callback_entity_is_dead")
-        run_callbacks("callback_enemy_is_dead")
-        enemy.remove(target)
-        inititive_list.remove(target)
-        bloodthirsty = user
-    else:
-        input(f"{target.Name}'s resilience was lowered one stage!")
-        target.change_stat("RES", -1)
-    return bloodthirsty
-
-
-def forfireball(player_party, user, enemy, inititive_list):
-    if user.MP < 40:
-        input(f"{user.Name} tried to use Fireball, but its immense mana cost proved too much for them!")
-        return False
-    
-    defender = enemy[find_target(len(enemy))]
-    user.MP -= 40
-    
-    input(f"{user.Name} casts Fireball!")
-    defense_ignored = defender.get_res()
-    defender.RES -= defense_ignored
-    input("Even the most powerful defenses shatter when the shockwave hits it!")
-    damage = damage_calc(user, defender, True) * 2
-    defender.RES += defense_ignored
-    
-    input(f"{defender.Name} takes {damage} damage!")
-    defender.HP -= damage
-    run_callbacks("callback_entity_is_hit")
-    run_callbacks("callback_enemy_is_hit")
-    if entity_is_dead(defender):
-        input(f"{defender.Name} has fallen!")
-        run_callbacks("callback_entity_is_dead")
-        run_calbacks("callback_enemy_is_dead")
-        enemy.remove(defender)
-        inititive_list.remove(defender)
-        return user
-    return None
-
-
-def focus(player_party, user, enemy, turn_order):
-    mind_multiple = (user.get_mind() * 0.05) + 1
-    if mind_multiple > 5:
-        mind_multiple = 5
-        
-    if user.MP < 5:
-        input(f"{user.Name} tried to use Focus, but they didn't have enough MP!")
-        return False
-    else:
-        user.MP -= 5
-        input(f"{user.Name} used Focus!")
-        input("They take a deep breath and center their thoughts...")
-        input("They feel better already!")
-        health_to_heal = int(user.MaxHP * 0.1 + (random.randrange(10, 15) * mind_multiple))
-        if (health_to_heal + user.HP) > user.MaxHP:
-            health_to_heal = user.MaxHP - user.HP
-        input(f"{user.Name} heals {health_to_heal} HP!")
-        user.HP += health_to_heal
-        input("They gain a temporary boost to Mind!")
-        user.change_stat("MND", 1)
-
-
-def slap(player_party, user, enemy, turn_order):
-    input(f"{user.Name} is panicking!")
-    panic_thoughts = [
-        f"{user.Name} thinks they left their refridgerator running!",
-        f"{user.Name} suddenly forgets everything they were doing!",
-        f"{user.Name} suddenly finds images of malformed monkeys very valuable!",
-        f"{user.Name} realizes that their parents were right about their worthlessness!",
-        f"{user.Name} remembers that one cringy thing they did when they were a kid!",
-        f"{user.Name} shits the bed!"
-    ]
-    chosen_thought = random.choice(panic_thoughts)
-    input(f"{chosen_thought}")
-    input("They slap themselves to regain composure!")
-    damage = damage_calc(user, user, False)
-    input(f"They suffer {damage} damage!")
-    user.HP -= damage
-    if entity_is_dead(user):
-        input(f"{user.Name} killed themself!")
-        turn_order.remove(user)
-        player_party.remove(user)
-    else:
-        input(f"{user.Name}'s mind settles!")
-        user.change_stat("MND", 1)
-    return None
-    
-def heal(player_party, user, enemy, turn_order):
-    if user.MP < 6:
-        input(f"{user.Name} didn't have enough MP to use Heal!")
-        return False
-    else:
-        print("Party:")
-        for pc in player_party:
-            print(f"{pc.Name}")
-        pc_to_heal = input("(INPUT PLAYER CHARACTER NAME) Which party member would you like to heal?")
-        for character in player_party:
-            if character.Name.lower() == pc_to_heal.lower().strip():
-                pc_to_heal = character
-                break
-        input(f"{user.Name} focuses on calming things...")
-        input("They siphon 6 MP!")
-        input(f"{user.Name} casts Heal!")
-        HP_to_heal = int(user.MaxHP * 0.2) + int(user.get_mind() * 1.5)
-        HP_to_heal = pc_to_heal.MaxHP - pc_to_heal.HP if pc_to_heal.HP + HP_to_heal > pc_to_heal.MaxHP else HP_to_heal
-        input(f"They heal {pc_to_heal.Name} for {HP_to_heal} HP!")
-        pc_to_heal.HP += HP_to_heal
-        return None
-
-def resilience_prayer(player_party, user, enemy, turn_order):
-    if user.MP < 20:
-        input(f"{user.Name} didn't have enough MP to use Resilience Prayer!")
-        return False
-    else:
-        input(f"{user.Name} kneels down and prays for everyone to be safe...")
-        for pc in player_party:
-            pc.change_stat("RES", 1)
-        input("Everyone feels a little tougher! Party's resilience increases one stage!")
-        return None
-
-def king_slime(player_party, gel_king, enemies, initiative_list, enemies_spawned):
-    bloodthirsty = None
-    # Boss Behavior
-    # At 20% HP intervals, have it spawn a servant
-    # i.e. at 80% health, it spawns 1 slime, again at 60%
-    # If it's below half health, it spawns 2 at a time instead
-    # at 40% and 20%, it spawns 2 slimes each time
-    # Otherwise just attacks normally
-    #
-    # Wanted to do this via callbacks/flag checking, but I don't know how to do that!
-    # At this moment, I'm just going to use highly specific globals that won't be used anywhere else.
-    # THIS SHOULD NOT BE THE MAIN SOLUTION! GLOBALS ARE CRINGE! CALLBACKS ARE BASED!
-    global king_slime_spawn_phase_1_happened
-    global king_slime_spawn_phase_2_happened
-    global king_slime_spawn_phase_3_happened
-    global king_slime_spawn_phase_4_happened
-
-    if gel_king.HP < int(gel_king.MaxHP * 0.8):
-        if king_slime_spawn_phase_1_happened == False:
-            GelatinousServant = copy.deepcopy(entities["GelatinousServant"])
-            input("The Gelatinous King's gel wobbles...\nA Gelatinous Servent erupts from the King and joins the fight!")
-            enemies.append(GelatinousServant)
-            initiative_list.append(GelatinousServant)
-            enemies_spawned.append(GelatinousServant)
-            king_slime_spawn_phase_1_happened = True
-            
-    if gel_king.HP < int(gel_king.MaxHP * 0.6):
-        if king_slime_spawn_phase_2_happened == False:
-            GelatinousServant = copy.deepcopy(entities["GelatinousServant"])
-            input("The Gelatinous King ejects another Servant from its wounded flesh!")
-            enemies.append(GelatinousServant)
-            initiative_list.append(GelatinousServant)
-            enemies_spawned.append(GelatinousServant)
-            king_slime_spawn_phase_2_happened = True  
-            
-    if gel_king.HP < int(gel_king.MaxHP * 0.4):
-        if king_slime_spawn_phase_3_happened == False:
-            input("The Gelatinous King is falling apart! Two servants are ripped from the main body!")
-            for _ in range(2):
-                GelatinousServant = copy.deepcopy(entities["GelatinousServant"])                
-                enemies.append(GelatinousServant)
-                initiative_list.append(GelatinousServant)
-                enemies_spawned.append(GelatinousServant)
-            king_slime_spawn_phase_3_happened = True
-                
-    if gel_king.HP < int(gel_king.MaxHP * 0.2):
-        if king_slime_spawn_phase_4_happened == False:
-            input("The Gelatinous King is almost dead!\nThree Gelatinous Servants stream like a river from its flesh!")
-            for _ in range(3):
-                GelatinousServant = copy.deepcopy(entities["GelatinousServant"])
-                enemies.append(GelatinousServant)
-                initiative_list.append(GelatinousServant)
-                enemies_spawned.append(GelatinousServant)   
-            king_slime_spawn_phase_4_happened = True
-
-    enemy_target = None
-    for player_character in player_party:
-        if damage_calc(gel_king, player_character, False, False) > player_character.HP:
-            enemy_target = player_character
-            break
-    enemy_target = random.choice(player_party) if enemy_target == None else enemy_target
-    enemy_damage = damage_calc(gel_king, enemy_target, False)
-    input(f"The King slams down on {enemy_target.Name} with its ginormous body and deals {enemy_damage}!")
-    enemy_target.HP -= enemy_damage
-    # make sure the character doesn't have negative health
-    if enemy_target.HP < 0:
-        enemy_target.HP = 0
-    # let the player know what health they're at
-    input(f"{enemy_target.Name} is at {enemy_target.HP}/{enemy_target.MaxHP} HP!")
-    # check if the character died
-    if enemy_target.HP <= 0:
-        input(f"{enemy_target.Name} Has Fallen!")
-        bloodthirsty = gel_king
-        initiative_list.remove(enemy_target)
-        player_party.remove(enemy_target)
-    return bloodthirsty    
-
 def main():
     began = False
     run = 1
@@ -426,7 +199,7 @@ def main():
                 for guy in player_party:
                     entity.level_up(guy, True)
             for guy in player_party:
-                entity.level_up(guy, True)
+                entity.level_up(guy)
                 
         elif run == 5:
             input("Congratulations! You beat the game!")
@@ -439,7 +212,7 @@ def main():
                 for guy in player_party:
                     entity.level_up(guy, True)
             for guy in player_party:
-                entity.level_up(guy, False)
+                entity.level_up(guy)
                 
         entity.present_player_party_members(player_party)
         if not battle.initiate_battle(player_party, run):

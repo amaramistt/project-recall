@@ -35,6 +35,7 @@ jobs = {
     "mage": {
         "stats": [2, 3, 1, 2, 4, 3],
         "abilities": {
+            1: "spark",
             10: "fireball"
         }
     },
@@ -82,6 +83,10 @@ abilities = {
         "name": "Fireball",
         "callback": "forfireball",
         "target": "TARGET_DIRECT"
+    },
+    "spark": {
+        "name": "Spark",
+        "callback": "spark"
     },
     "skullcrusher": {
         "name": "Skull Crusher",
@@ -158,7 +163,8 @@ class Entity(object):
             self.MoneyReward = 0
         if self.EntityType == "BossEnemy":
             self.BossLogic = template["BossLogic"]
-        elif self.EntityType == "PlayerCharacter":
+            self.Phases = template["Phases"]
+        elif self.EntityType == "PlayerCharacter" or self.EntityType == "Khorynn":
             self.ExperienceCount = 0
             self.Job = template["Job"]  
             self.MasteredJobs = []
@@ -358,6 +364,12 @@ entities = {
         "HP": 4000,
         "MP": 50,
         "BossLogic": "king_slime",
+        "Phases": {
+            "Spawn Phase 1": False,
+            "Spawn Phase 2": False,
+            "Spawn Phase 3": False,
+            "Spawn Phase 4": False
+        },
         "Abilities": {}
     }),
     "GelatinousServant": Entity({
@@ -374,7 +386,24 @@ entities = {
         "MP": 30,
         "Abilities": {}
     }),
-    ""
+    "StoneGolem": Entity({
+        "Name": "Stone Golem",
+        "EntityType": "BossEnemy",
+        "Level": 30,
+        "Max HP": 1500,
+        "Max MP": 0,
+        "STR": 320,
+        "RES": 210,
+        "MND": 2,
+        "AGI": 80,
+        "HP": 1500,
+        "MP": 0,
+        "BossLogic": "stone_golem",
+        "Phases": {
+            "Phase 2": False
+        },
+        "Abilities": {}
+    })
 }
 
 def get_jobs_map():
@@ -385,14 +414,6 @@ def get_abilities_map():
 
 def get_entity_map():
     return entities
-
-def find_turn_order(pc_party: list[Entity], enemies_in_battle: list[Entity]):
-    entity_list = []
-    for actors in pc_party:
-        entity_list.append(actors)
-    for actors in enemies_in_battle:
-        entity_list.append(actors)
-    return sorted(entity_list, key=lambda x: x.AGI, reverse=True)
 
 
 def find_party_level(party):
@@ -472,6 +493,8 @@ def gen_starting_stats(character: Entity, first_generation: bool = True):
     if first_generation:
         character.Level = 1
         character.Abilities = {}
+        if 1 in char_job["abilities"]:
+            character.Abilities[]
     elif not first_generation:
         old_level = character.Level
         new_level = old_level - 5 if old_level - 5 > 0 else 1
@@ -480,7 +503,7 @@ def gen_starting_stats(character: Entity, first_generation: bool = True):
             level_up(character, True)
     
 
-def level_up(character: Entity, invisible: bool):
+def level_up(character: Entity, invisible: bool = False):
     global jobs, stats_order
     char_job = jobs[character.Job]
     char_learned_ability = False
@@ -496,14 +519,14 @@ def level_up(character: Entity, invisible: bool):
     character.MP = character.MaxMP
     if character.Level in char_job["abilities"]:
         ability_to_learn = char_job["abilities"][character.Level]
-        character.Abilities[ability_to_learn["NAME"]] = ability_to_learn[ability_to_learn["NAME"]]
+        character.Abilities[ability_to_learn] = abilities[ability_to_learn]
         char_learned_ability = True
         #there is a better way to do this and I do not know it
     
     if not invisible:
         input(f"{character.Name} Leveled Up!")
         if char_learned_ability:
-            input(f"{character.Name} learned {ability_to_learn['NAME']}!")
+            input(f"{character.Name} learned {abilities[ability_to_learn]['name']}!")
         input(f"New stats:\n{character}\n")
 
 
@@ -552,7 +575,7 @@ def generate_party_member(party_level, name = ""):
 def present_player_party_members(player_party):
     os.system(CLEAR)
     if len(player_party) <= 3:
-        find_party_level(player_party)
+        party_level = find_party_level(player_party)
         print("You may choose one of two adventurers to join your party!")
         char_1 = generate_party_member(party_level)
         print(f"Option 1\n{char_1}\n")
@@ -579,7 +602,9 @@ def present_player_party_members(player_party):
 def generate_khorynn(chosen_job):
     Khorynn = generate_party_member(1, "Khorynn")
     Khorynn.Job = chosen_job
+    Khorynn.EntityType = "Khorynn"
     gen_starting_stats(Khorynn, True)
+    return Khorynn
     
     
 
