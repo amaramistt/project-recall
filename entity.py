@@ -1,6 +1,8 @@
 import os
 import random
 import copy
+import gamestate
+from gamestate import GAME_STATE
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
@@ -29,6 +31,7 @@ jobs = {
     "just a guy": {
         "stats": [3, 1, 1, 2, 1, 3],
         "abilities": {
+            1: "talk",
             10: "slap"
         }
     },
@@ -92,6 +95,10 @@ abilities = {
         "name": "Skull Crusher",
         "callback": "skull_crusher",
         "target": "TARGET_VICTIM"
+    },
+    "talk": {
+        "name": "Talk",
+        "callback": "talk_ability"
     },
     "slap": {
         "name": "Slap",
@@ -167,8 +174,12 @@ class Entity(object):
         elif self.EntityType == "PlayerCharacter" or self.EntityType == "Khorynn":
             self.ExperienceCount = 0
             self.Job = template["Job"]  
+            self.JobEXP = 0
             self.MasteredJobs = []
-            self.Items = {}
+            self.Items = []
+            self.EquippedWeapon = None
+            self.EquippedArmor = None
+            self.EquippedAccessories = []
         self.StatChanges = {
             "STR": 0,
             "RES": 0,
@@ -207,6 +218,42 @@ class Entity(object):
 
         self.StatChanges[stat_to_change] = new_value    
 
+    def calc_equipment_stats(self):
+        for stat in self.EquipmentStats.keys():
+            self.EquipmentStats[stat] = 0
+
+        equip_hp_mod = EquippedArmor.ItemStats["Max HP"] + EquippedAccessories[0].ItemStats["Max HP"] + EquippedAccessories[1].ItemStats["Max HP"]
+        equip_hp_mod = int(equip_hp_mod / 10)
+        equipment_hp = self.MaxHP * equip_hp_mod
+        self.EquipmentStats["Max HP"] = equipment_hp
+
+        equip_mp_mod = EquippedArmor.ItemStats["Max MP"] + EquippedAccessories[0].ItemStats["Max MP"] + EquippedAccessories[1].ItemStats["Max MP"]
+        equip_mp_mod = int(equip_mp_mod / 10)
+        equipment_mp = self.MaxMP * equip_mp_mod
+        self.EquipmentStats["Max MP"] = equipment_mp
+
+        equip_str_mod = EquippedArmor.ItemStats["STR"] + EquippedAccessories[0].ItemStats["STR"] + EquippedAccessories[1].ItemStats["STR"]
+        equip_str_mod = int(equip_str_mod / 10)
+        equipment_str = self.STR * equip_str_mod
+        self.EquipmentStats["STR"] = equipment_str
+
+        equip_res_mod = EquippedArmor.ItemStats["RES"] + EquippedAccessories[0].ItemStats["RES"] + EquippedAccessories[1].ItemStats["RES"]
+        equip_res_mod = int(equip_res_mod / 10)
+        equipment_res = self.RES * equip_res_mod
+        self.EquipmentStats["RES"] = equipment_res
+
+        equip_mind_mod = EquippedArmor.ItemStats["MND"] + EquippedAccessories[0].ItemStats["MND"] + EquippedAccessories[1].ItemStats["MND"]
+        equip_mind_mod = int(equip_mind_mod / 10)
+        equipment_mind = self.MND * equip_mind_mod
+        self.EquipmentStats["MND"] = equipment_mind
+
+        equip_agi_mod = EquippedArmor.ItemStats["AGI"] + EquippedAccessories[0].ItemStats["AGI"] + EquippedAccessories[1].ItemStats["AGI"]
+        equip_agi_mod = int(equip_agi_mod / 10)
+        equipment_agi = self.AGI * equip_agi_mod
+        self.EquipmentStats["AGI"] = equipment_agi
+
+
+
 entities = {
     "Khorynn": Entity({
         "Name": "Khorynn",
@@ -221,6 +268,21 @@ entities = {
         "AGI": 1,
         "HP": 1,
         "MP": 1,
+        "Abilities": {}
+    }),
+    "MEGAKHORYNN": Entity({
+        "Name": "Ultra Mega Debug Khorynn",
+        "EntityType": "Khorynn",
+        "Job": "warrior",
+        "Level": 500,
+        "Max HP": 10000,
+        "Max MP": 10000,
+        "STR": 10000,
+        "RES": 10000,
+        "MND": 10000,
+        "AGI": 10000,
+        "HP": 10000,
+        "MP": 10000,
         "Abilities": {}
     }),
     "EnemyWizard": Entity({
@@ -288,9 +350,9 @@ entities = {
         "Max HP": 180,
         "Max MP": 20,
         "STR": 105,
-        "RES": 80,
+        "RES": 100,
         "MND": 30,
-        "AGI": 50,
+        "AGI": 30,
         "HP": 110,
         "MP": 20,
         "Abilities": {}
@@ -302,8 +364,8 @@ entities = {
         "Max HP": 100,
         "Max MP": 79,
         "STR": 30,
-        "RES": 60,
-        "MND": 105,
+        "RES": 30,
+        "MND": 80,
         "AGI": 70,
         "HP": 70,
         "MP": 79,
@@ -409,8 +471,10 @@ entities = {
 def get_jobs_map():
     return jobs
 
+
 def get_abilities_map():
     return abilities
+
 
 def get_entity_map():
     return entities
@@ -423,46 +487,6 @@ def find_party_level(party):
     party_levels = sorted(party_levels, reverse=True)
     return party_levels[0]
 
-def debug_starting_stats():
-    os.system(CLEAR)
-    debug = entity.generate_party_member(1)
-    debug.Job = "just a guy"
-    gen_starting_stats(debug, True)
-    print(f"Base Stat 1\nLevel 1:{debug.get_strength()}")
-    lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.get_strength()}")
-    lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.get_strength()}")
-    lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.get_strength()}\n")
-    os.system(CLEAR)
-    gen_starting_stats(debug, True)
-    print(f"Base Stat 2\nLevel 1:{debug.get_res()}")
-    lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.get_res()}")
-    lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.get_res()}")
-    lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.get_res()}")
-    os.system(CLEAR)
-    gen_starting_stats(debug, True)
-    print(f"Base Stat 3\nLevel 1: {debug.get_agi()}")
-    lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.get_agi()}")
-    lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.get_agi()}")
-    lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.get_agi()}")
-    os.system(CLEAR)
-    debug.Job = "warrior"
-    gen_starting_stats(debug, True)
-    print(f"Base Stat 4\nLevel 1: {debug.HP}")
-    lvl_up_bulk(debug, 9, True)
-    print(f"Level 10: {debug.HP}")
-    lvl_up_bulk(debug, 10, True)
-    print(f"Level 20: {debug.HP}")
-    lvl_up_bulk(debug, 10, True)
-    input(f"Level 30: {debug.HP}")
 
 def roll_stat(modifier: int, start: bool):
     # start is true if it's the first level, used in gen_starting_stats
@@ -494,45 +518,55 @@ def gen_starting_stats(character: Entity, first_generation: bool = True):
         character.Level = 1
         character.Abilities = {}
         if 1 in char_job["abilities"]:
-            character.Abilities[]
+            ability_to_learn = char_job["abilities"][1]
+            character.Abilities[ability_to_learn] = abilities[ability_to_learn]
     elif not first_generation:
         old_level = character.Level
-        new_level = old_level - 5 if old_level - 5 > 0 else 1
+        new_level = old_level - 3 if old_level - 3 > 0 else 1
         character.Level = 1
-        for _ in range(1, new_level):
-            level_up(character, True)
+        level_up(character, (new_level - 1))
     
 
-def level_up(character: Entity, invisible: bool = False):
+def level_up(character: Entity, times_to_level: int = 1, invisible: bool = False):
     global jobs, stats_order
     char_job = jobs[character.Job]
+    learned_abilities = []
     char_learned_ability = False
 
-    character.Level += 1
-    character.MaxHP += roll_stat(char_job["stats"][0], False)
-    character.MaxMP += roll_stat(char_job["stats"][1], False)
-    character.STR += roll_stat(char_job["stats"][2], False)
-    character.RES += roll_stat(char_job["stats"][3], False)
-    character.MND += roll_stat(char_job["stats"][4], False)
-    character.AGI += roll_stat(char_job["stats"][5], False)
-    character.HP = character.MaxHP
-    character.MP = character.MaxMP
-    if character.Level in char_job["abilities"]:
-        ability_to_learn = char_job["abilities"][character.Level]
-        character.Abilities[ability_to_learn] = abilities[ability_to_learn]
-        char_learned_ability = True
-        #there is a better way to do this and I do not know it
-    
+    for _ in range(times_to_level):
+        character.Level += 1
+        character.MaxHP += roll_stat(char_job["stats"][0], False)
+        character.MaxMP += roll_stat(char_job["stats"][1], False)
+        character.STR += roll_stat(char_job["stats"][2], False)
+        character.RES += roll_stat(char_job["stats"][3], False)
+        character.MND += roll_stat(char_job["stats"][4], False)
+        character.AGI += roll_stat(char_job["stats"][5], False)
+        character.HP = character.MaxHP
+        character.MP = character.MaxMP
+
+    for learnable_ability in char_job["abilities"]:
+        ability_to_learn = char_job["abilities"][learnable_ability]
+        if learnable_ability in range(0, (character.Level + 1)) and ability_to_learn not in character.Abilities:
+            character.Abilities[ability_to_learn] = abilities[ability_to_learn]
+            learned_abilities.append(abilities[ability_to_learn]) 
+            char_learned_ability = True
+            #there is a better way to do this and I do not know it
+        
     if not invisible:
-        input(f"{character.Name} Leveled Up!")
+        if times_to_level > 1:
+            print_with_conf(f"{character.Name} Leveled Up {times_to_level} times!")
+        else:
+            print_with_conf(f"{character.Name} Leveled Up!")
         if char_learned_ability:
-            input(f"{character.Name} learned {abilities[ability_to_learn]['name']}!")
-        input(f"New stats:\n{character}\n")
+            print(f"{character.Name} learned ", end="")
+            if len(learned_abilities) > 1:
+                for ability in learned_abilities:
+                    print(f"{ability['name']} and ", end="")
+                print_with_conf("\b\b \b\b b\b \b\b \b\b \b\b!")
+            else:
+                print_with_conf(f"{learned_abilities[0]['name']}!")
+        print_with_conf(f"New stats:\n{character}\n")
 
-
-def lvl_up_bulk(levelee, amount_to_lvl, hide_display: bool = True):
-    for _ in range(amount_to_lvl):
-        level_up(levelee, hide_display)
 
 def generate_party_member(party_level, name = ""):
     # Creates a new PlayerCharacter entity object returns it  
@@ -568,46 +602,128 @@ def generate_party_member(party_level, name = ""):
     # give it starting stats
     gen_starting_stats(generated_character, True)
     # level it up to be useful to the party
-    for _ in range(1,party_level):
-        level_up(generated_character, True)
+    level_up(generated_character, (party_level - 1), True)
     return generated_character
 
-def present_player_party_members(player_party):
+def present_player_party_members():
     os.system(CLEAR)
-    if len(player_party) <= 3:
-        party_level = find_party_level(player_party)
-        print("You may choose one of two adventurers to join your party!")
+    if len(GAME_STATE.player_party) <= 3:
+        party_level = find_party_level(GAME_STATE.player_party)
+        print_with_conf("OLIVIA) OK, love, I've got two adventurers here for you. You can only take one.")
         char_1 = generate_party_member(party_level)
         print(f"Option 1\n{char_1}\n")
         char_2 = generate_party_member(party_level)
         print(f"Option 2\n{char_2}\n")
-        cmd = input("(INPUT) Which option do you choose to join your party?")
+        cmd = input("OLIVIA) Which one are you taking, Khorynn?\n(print_with_conf) Which number option do you choose to join your party?")
         while not isinstance(cmd, int):
             try:
                 cmd = int(cmd)
             except ValueError:
-                input("You must input a number!")
-                cmd = input("(INPUT) Which option do you choose to join your party?")
+                print_with_conf("You must print_with_conf a number!")
+                cmd = input("(print_with_conf) Which number option do you choose to join your party?")
         if cmd == 1:
-            input(f"You chose {char_1.Name}! They join your party!")
-            player_party.append(char_1)
-            input(player_party)
+            print_with_conf(f"You chose {char_1.Name}! They join your party!")
+            GAME_STATE.player_party.append(char_1)
+            print_with_conf(GAME_STATE.player_party)
         elif cmd == 2:
-            input(f"You chose {char_2.Name}! They join your party!")
-            player_party.append(char_2)
-            input(player_party)
-    elif len(player_party) > 3:
-        input("You would be given the option to choose one of two party members, but your party is full!")
+            print_with_conf(f"You chose {char_2.Name}! They join your party!")
+            GAME_STATE.player_party.append(char_2)
+            print_with_conf(GAME_STATE.player_party)
+    elif len(GAME_STATE.player_party) > 3:
+        print_with_conf("OLIVIA) Sorry, love, but you're already running with a party of four. Can't give you any more in good concience.")
+        print_with_conf("OLIVIA) If one of them kicks it, come back and I'll have two wonderful options for you.")
 
 def generate_khorynn(chosen_job):
+    global GAME_STATE
+    input(GAME_STATE.debug_mode)
+    if GAME_STATE.debug_mode:
+        MEGAKHORYNN = copy.deepcopy(entities["MEGAKHORYNN"])
+        return MEGAKHORYNN
     Khorynn = generate_party_member(1, "Khorynn")
     Khorynn.Job = chosen_job
     Khorynn.EntityType = "Khorynn"
     gen_starting_stats(Khorynn, True)
     return Khorynn
-    
+
+def job_change_handler():
+    os.system(CLEAR)
+    selected_pc = None
+    finished = False
+    while selected_pc is None:
+        print("Party:")
+        for pc in GAME_STATE.player_party:
+            print(pc.Name)
+        cmd = input("\nOLIVIA) Which one of you is looking to change your job?\n(print_with_conf) print_with_conf the party member you would like to change the job of.")
+        
+        for pc in GAME_STATE.player_party:
+            if cmd.lower().strip() == pc.Name.lower():
+                selected_pc = pc
+        if selected_pc is None:
+            print_with_conf(f"OLIVIA) {cmd}... Mmmm, nope, I don't see a {cmd} with you. Let's try that again.")
+
+    print_with_conf(f"OLIVIA) {selected_pc.Name}... Mmm, that one.")
+    while not finished:
+        print("OLIVIA) Here's a list of the jobs that one can take:")
+        for job in jobs.keys():
+            print(f"{job}, ", end = "")
+        cmd = input(f"\nOLIVIA) Which job is {selected_pc.Name} here gonna take, Khorynn?").lower().strip()
+        if cmd in jobs.keys():
+            selected_pc.Job = cmd
+            print_with_conf(f"OLIVIA) Alright, come here, {selected_pc.Name}. Look deep into my eyes.")
+            print_with_conf(f"{selected_pc.Name} steps up towards Olivia. They stare into each other's eyes for a few seconds.")
+            print_with_conf("Suddenly, Olivia grabs hold of them and starts shaking them around violently while shouting in their face!")
+            print_with_conf(f"OLIVIA) YOU'RE A FUCKING {cmd.upper()}!!! BE A {cmd.upper()}!!! BE A {cmd.upper()} OR I'LL FUCKING KILL YOU RIGHT NOW!!!")
+            for _ in range(3):
+                print_with_conf()
+            print_with_conf(f"{selected_pc.Name} successfully became a {cmd}!")
+            gen_starting_stats(selected_pc, False)            
+            finished = True
+        else:
+            print_with_conf(f"OLIVIA) Love, that's not on the list. You've gotta pick a job on the list.")
     
 
+def party_place_handler():
+    player_got_new_party_member = False
+    player_changed_jobs = False
+    player_is_finished = False
+
+    while not player_is_finished:
+        os.system(CLEAR)
+        print("OLIVIA) Welcome to my party planning place.\n* What are you looking to be done today, love?")
+        cmd = input("(print_with_conf) You think of whether you want to find a new 'party member' or 'change jobs'... or just 'leave'.  ").strip().lower()
+        
+        if cmd == "party member":
+            if not player_got_new_party_member:
+                present_player_party_members()
+                player_got_new_party_member = True
+            else:
+                print_with_conf("OLIVIA) You already chose one of the two I gave you, Khorynn. There isn't anyone else to take.")
+                
+        elif cmd == "change jobs":
+            if not player_changed_jobs:
+                job_change_handler()
+                player_changed_jobs = True
+            else:
+                print_with_conf("OLIVIA) Khorynn, honey, you already changed jobs. You know I don't have the energy to do that again.")
+                
+        elif cmd == "leave":
+            if not player_got_new_party_member:
+                confirm = input("OLIVIA) Hey, love, you haven't taken anyone new with you. Did you mean to do that?\n(print_with_conf) Y/N  ").strip().lower()
+                if confirm == "y" or confirm == "yes":
+                    print_with_conf("OLIVIA) ...Alright, love. Whatever floats your boat.")
+                    player_got_new_party_member = True
+                else:
+                    print_with_conf("OLIVIA) Alright, Khorynn. Now, where was I...?")
+            if not player_changed_jobs:
+                confirm = input("OLIVIA) Khorynn, you haven't changed anyone's job. You sure you don't want to swap?\n(print_with_conf) Y/N  ").strip().lower()
+                if confirm == "y" or confirm == "yes":
+                    print_with_conf("OLIVIA) Got it, love. Staying on your current path for now.")
+                    player_changed_jobs = True
+                else:
+                    print_with_conf("OLIVIA) Alright, Khorynn. Now, where was I...?")
+            if player_changed_jobs and player_got_new_party_member:
+                print_with_conf("OLIVIA) Godspeed, Khorynn. May nothing stand in your way.")
+                player_is_finished = True
 ###
 
 
