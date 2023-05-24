@@ -134,7 +134,7 @@ def begin_run_handler():
                 return True
             else:
                 print_with_conf("That is not an available job!")
-    elif GAME_STATE.debug_mode:
+    else:
         # UNLEASH THE WRATH OF ULTRA MEGA DEBUG KHORYNN
         print(GAME_STATE.debug_mode)
         print_with_conf("Through the power of debugging, you are blessed with Ultra Mega Debug Khorynn!!!!", True)

@@ -1,8 +1,8 @@
 import os
 import random
 import copy
-import gamestate
-from gamestate import GAME_STATE
+
+from gamestate import GAME_STATE, print_with_conf
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
@@ -63,19 +63,20 @@ jobs = {
 
 abilities = {
 
-    #Ability Template
+    # Ability Template
 
-    #LevelLearned: Level that the class should learn the ability
-    #NAME: Used to name the ability in the abilities dict inside an entity's stat sheet
-    #ABILITYFUNC: Name of the function's ability. Case sensitive. Must be exact same as the function.
-    #ABILITYTYPE: If it's NOT_OFFENSIVE, it can target things other than just enemies and must handle *everything* in its function
+    # LevelLearned: Level that the class should learn the ability
+    # NAME: Used to name the ability in the abilities dict inside an entity's stat sheet
+    # ABILITYFUNC: Name of the function's ability. Case sensitive. Must be exact same as the function.
+    # ABILITYTYPE: If it's NOT_OFFENSIVE, it can target things other than just enemies and must handle *everything*
+    # in its function
     #             Meaning it has to deal damage if it deals damage and also check for death
     
-    #LevelLearned:{"NAME": "AbilityName", 
-    #"AbilityName": {
-    #"ABILITYFUNC": "name",
-    #"ABILITYTYPE": "OFFENSIVE/NOT_OFFENSIVE"
-    #}}
+    # LevelLearned:{"NAME": "AbilityName",
+    # "AbilityName": {
+    # "ABILITYFUNC": "name",
+    # "ABILITYTYPE": "OFFENSIVE/NOT_OFFENSIVE"
+    # }}
     
     "focus": {
         "name": "Focus",
@@ -151,6 +152,7 @@ player_character_names = [
     "Draya"
 ]
 
+
 class Entity(object):
     def __init__(self, template):
         self.Name = template["Name"]
@@ -196,7 +198,7 @@ class Entity(object):
         }
 
     def __repr__(self):
-        #makes it so that whenever the class object itself is printed, it prints the below instead!
+        # makes it so that whenever the class object itself is printed, it prints the below instead!
         return f'\nName: {self.Name}\nLevel: {self.Level}\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nJOB: {self.Job}\nSTR: {self.STR}\nRES: {self.RES}\nMND: {self.MND}\nAGI: {self.AGI}'
 
     def get_strength(self):
@@ -222,36 +224,35 @@ class Entity(object):
         for stat in self.EquipmentStats.keys():
             self.EquipmentStats[stat] = 0
 
-        equip_hp_mod = EquippedArmor.ItemStats["Max HP"] + EquippedAccessories[0].ItemStats["Max HP"] + EquippedAccessories[1].ItemStats["Max HP"]
+        equip_hp_mod = self.EquippedArmor.ItemStats["Max HP"] + self.EquippedAccessories[0].ItemStats["Max HP"] + self.EquippedAccessories[1].ItemStats["Max HP"]
         equip_hp_mod = int(equip_hp_mod / 10)
         equipment_hp = self.MaxHP * equip_hp_mod
         self.EquipmentStats["Max HP"] = equipment_hp
 
-        equip_mp_mod = EquippedArmor.ItemStats["Max MP"] + EquippedAccessories[0].ItemStats["Max MP"] + EquippedAccessories[1].ItemStats["Max MP"]
+        equip_mp_mod = self.EquippedArmor.ItemStats["Max MP"] + self.EquippedAccessories[0].ItemStats["Max MP"] + self.EquippedAccessories[1].ItemStats["Max MP"]
         equip_mp_mod = int(equip_mp_mod / 10)
         equipment_mp = self.MaxMP * equip_mp_mod
         self.EquipmentStats["Max MP"] = equipment_mp
 
-        equip_str_mod = EquippedArmor.ItemStats["STR"] + EquippedAccessories[0].ItemStats["STR"] + EquippedAccessories[1].ItemStats["STR"]
+        equip_str_mod = self.EquippedArmor.ItemStats["STR"] + self.EquippedAccessories[0].ItemStats["STR"] + self.EquippedAccessories[1].ItemStats["STR"]
         equip_str_mod = int(equip_str_mod / 10)
         equipment_str = self.STR * equip_str_mod
         self.EquipmentStats["STR"] = equipment_str
 
-        equip_res_mod = EquippedArmor.ItemStats["RES"] + EquippedAccessories[0].ItemStats["RES"] + EquippedAccessories[1].ItemStats["RES"]
+        equip_res_mod = self.EquippedArmor.ItemStats["RES"] + self.EquippedAccessories[0].ItemStats["RES"] + self.EquippedAccessories[1].ItemStats["RES"]
         equip_res_mod = int(equip_res_mod / 10)
         equipment_res = self.RES * equip_res_mod
         self.EquipmentStats["RES"] = equipment_res
 
-        equip_mind_mod = EquippedArmor.ItemStats["MND"] + EquippedAccessories[0].ItemStats["MND"] + EquippedAccessories[1].ItemStats["MND"]
+        equip_mind_mod = self.EquippedArmor.ItemStats["MND"] + self.EquippedAccessories[0].ItemStats["MND"] + self.EquippedAccessories[1].ItemStats["MND"]
         equip_mind_mod = int(equip_mind_mod / 10)
         equipment_mind = self.MND * equip_mind_mod
         self.EquipmentStats["MND"] = equipment_mind
 
-        equip_agi_mod = EquippedArmor.ItemStats["AGI"] + EquippedAccessories[0].ItemStats["AGI"] + EquippedAccessories[1].ItemStats["AGI"]
+        equip_agi_mod = self.EquippedArmor.ItemStats["AGI"] + self.EquippedAccessories[0].ItemStats["AGI"] + self.EquippedAccessories[1].ItemStats["AGI"]
         equip_agi_mod = int(equip_agi_mod / 10)
         equipment_agi = self.AGI * equip_agi_mod
         self.EquipmentStats["AGI"] = equipment_agi
-
 
 
 entities = {
@@ -315,7 +316,7 @@ entities = {
 
     }),
     "Volakuma": Entity({
-       "Name": "Volukuma",
+        "Name": "Volukuma",
         "EntityType": "Enemy",
         "Level": 1,
         "Max HP": 10,
@@ -468,6 +469,7 @@ entities = {
     })
 }
 
+
 def get_jobs_map():
     return jobs
 
@@ -550,7 +552,7 @@ def level_up(character: Entity, times_to_level: int = 1, invisible: bool = False
             character.Abilities[ability_to_learn] = abilities[ability_to_learn]
             learned_abilities.append(abilities[ability_to_learn]) 
             char_learned_ability = True
-            #there is a better way to do this and I do not know it
+            # there is a better way to do this and I do not know it
         
     if not invisible:
         if times_to_level > 1:
@@ -568,7 +570,7 @@ def level_up(character: Entity, times_to_level: int = 1, invisible: bool = False
         print_with_conf(f"New stats:\n{character}\n")
 
 
-def generate_party_member(party_level, name = ""):
+def generate_party_member(party_level, name=""):
     # Creates a new PlayerCharacter entity object returns it  
     # For now, every new entity will just be named "Billie", but i'll need to add a random name mechanic later
     # Should have appropriate starting stats for the job it rolls 
@@ -579,7 +581,7 @@ def generate_party_member(party_level, name = ""):
         player_character_names.remove(gen_char_name)
     else:
         gen_char_name = name
-    #make a new entity
+    # make a new entity
     entities[f"{gen_char_name}"] = Entity({
         "Name": f"{gen_char_name}",
         "EntityType": "PlayerCharacter",
@@ -604,6 +606,7 @@ def generate_party_member(party_level, name = ""):
     # level it up to be useful to the party
     level_up(generated_character, (party_level - 1), True)
     return generated_character
+
 
 def present_player_party_members():
     os.system(CLEAR)
@@ -633,8 +636,8 @@ def present_player_party_members():
         print_with_conf("OLIVIA) Sorry, love, but you're already running with a party of four. Can't give you any more in good concience.")
         print_with_conf("OLIVIA) If one of them kicks it, come back and I'll have two wonderful options for you.")
 
+
 def generate_khorynn(chosen_job):
-    global GAME_STATE
     input(GAME_STATE.debug_mode)
     if GAME_STATE.debug_mode:
         MEGAKHORYNN = copy.deepcopy(entities["MEGAKHORYNN"])
@@ -674,7 +677,7 @@ def job_change_handler():
             print_with_conf("Suddenly, Olivia grabs hold of them and starts shaking them around violently while shouting in their face!")
             print_with_conf(f"OLIVIA) YOU'RE A FUCKING {cmd.upper()}!!! BE A {cmd.upper()}!!! BE A {cmd.upper()} OR I'LL FUCKING KILL YOU RIGHT NOW!!!")
             for _ in range(3):
-                print_with_conf()
+                print_with_conf(".")
             print_with_conf(f"{selected_pc.Name} successfully became a {cmd}!")
             gen_starting_stats(selected_pc, False)            
             finished = True
