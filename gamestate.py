@@ -7,6 +7,9 @@ CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
 class GameState(object):
     def __init__(self):
+      self.reset()
+
+    def reset(self):
         self.player_party = []
         self.enemy_party = []
         self.bagged_items = []
@@ -16,6 +19,7 @@ class GameState(object):
         self.in_battle = False
         self.message_log = []
         self.debug_mode = False
+
 
 GAME_STATE = GameState()
 
@@ -144,8 +148,7 @@ def begin_run_handler():
         return True
 
 def title_screen():
-    global GAME_STATE
-    GAME_STATE = GameState()
+    GAME_STATE.reset()
     os.system(CLEAR)
     print("                P R O J E C T    R E C A L L")
     print_with_conf("                    Press Enter To Start    ", True)

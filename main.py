@@ -7,9 +7,6 @@
 #
 #    \/ DO AT SOME POINT LATER \/
 #    
-
-
-
 import os
 import sys
 import subprocess
@@ -19,7 +16,7 @@ import entity
 import item
 import battle
 import gamestate
-from gamestate import GAME_STATE
+from gamestate import GAME_STATE, print_with_conf
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
