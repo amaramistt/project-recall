@@ -122,8 +122,8 @@ abilities = {
 
 stats_order = {
     # required to let levelUp() or any function like it work at all
-    1: "Max HP",
-    2: "Max MP",
+    1: "MaxHP",
+    2: "MaxMP",
     3: "STR",
     4: "RES",
     5: "MND",
@@ -160,8 +160,8 @@ class Entity(object):
         self.Name = template["Name"]
         self.EntityType = template["EntityType"]
         self.Level = template["Level"]
-        self.MaxHP = template["Max HP"]
-        self.MaxMP = template["Max MP"]
+        self.MaxHP = template["MaxHP"]
+        self.MaxMP = template["MaxMP"]
         self.STR = template["STR"]
         self.RES = template["RES"]
         self.MND = template["MND"]
@@ -191,8 +191,8 @@ class Entity(object):
             "AGI": 0
         }
         self.EquipmentStats = {
-            "Max HP": 0,
-            "Max MP": 0,
+            "MaxHP": 0,
+            "MaxMP": 0,
             "STR": 0,
             "RES": 0,
             "MND": 0,
@@ -226,36 +226,9 @@ class Entity(object):
     def calc_equipment_stats(self):
         for stat in self.EquipmentStats.keys():
             self.EquipmentStats[stat] = 0
-        
-        equip_hp_mod = self.EquippedArmor.ItemStats["Max HP"] + self.EquippedAccessories[0].ItemStats["Max HP"] + self.EquippedAccessories[1].ItemStats["Max HP"]
-        equip_hp_mod = int(equip_hp_mod / 100)
-        equipment_hp = self.MaxHP * equip_hp_mod
-        self.EquipmentStats["Max HP"] = equipment_hp
-
-        equip_mp_mod = self.EquippedArmor.ItemStats["Max MP"] + self.EquippedAccessories[0].ItemStats["Max MP"] + self.EquippedAccessories[1].ItemStats["Max MP"]
-        equip_mp_mod = int(equip_mp_mod / 100)
-        equipment_mp = self.MaxMP * equip_mp_mod
-        self.EquipmentStats["Max MP"] = equipment_mp
-
-        equip_str_mod = self.EquippedArmor.ItemStats["STR"] + self.EquippedAccessories[0].ItemStats["STR"] + self.EquippedAccessories[1].ItemStats["STR"]
-        equip_str_mod = int(equip_str_mod / 100)
-        equipment_str = self.STR * equip_str_mod
-        self.EquipmentStats["STR"] = equipment_str
-
-        equip_res_mod = self.EquippedArmor.ItemStats["RES"] + self.EquippedAccessories[0].ItemStats["RES"] + self.EquippedAccessories[1].ItemStats["RES"]
-        equip_res_mod = int(equip_res_mod / 100)
-        equipment_res = self.RES * equip_res_mod
-        self.EquipmentStats["RES"] = equipment_res
-
-        equip_mind_mod = self.EquippedArmor.ItemStats["MND"] + self.EquippedAccessories[0].ItemStats["MND"] + self.EquippedAccessories[1].ItemStats["MND"]
-        equip_mind_mod = int(equip_mind_mod / 100)
-        equipment_mind = self.MND * equip_mind_mod
-        self.EquipmentStats["MND"] = equipment_mind
-
-        equip_agi_mod = self.EquippedArmor.ItemStats["AGI"] + self.EquippedAccessories[0].ItemStats["AGI"] + self.EquippedAccessories[1].ItemStats["AGI"]
-        equip_agi_mod = int(equip_agi_mod / 100)
-        equipment_agi = self.AGI * equip_agi_mod
-        self.EquipmentStats["AGI"] = equipment_agi
+        for stat in ["MaxHP", "MaxMP", "STR", "RES", "MND", "AGI"]:
+            percent = sum([item.ItemStats[stat] for item in [self.EquippedWeapon, self.EquippedArmor] + self.EquippedAccessories]) / 100
+            self.EquipmentStats[stat] = int(getattr(self, stat) * percent)
 
 
 entities = {
@@ -264,8 +237,8 @@ entities = {
         "EntityType": "PlayerCharacter",
         "Job": "undecided",
         "Level": 1,
-        "Max HP": 1,
-        "Max MP": 1,
+        "MaxHP": 1,
+        "MaxMP": 1,
         "STR": 1,
         "RES": 1,
         "MND": 1,
@@ -279,8 +252,8 @@ entities = {
         "EntityType": "Khorynn",
         "Job": "warrior",
         "Level": 500,
-        "Max HP": 10000,
-        "Max MP": 10000,
+        "MaxHP": 10000,
+        "MaxMP": 10000,
         "STR": 10000,
         "RES": 10000,
         "MND": 10000,
@@ -293,8 +266,8 @@ entities = {
         "Name": "Enraged Wizard",
         "EntityType": "Enemy",
         "Level": 1,
-        "Max HP": 6,
-        "Max MP": 12,
+        "MaxHP": 6,
+        "MaxMP": 12,
         "STR": 3,
         "RES": 7,
         "MND": 15,
@@ -307,8 +280,8 @@ entities = {
         "Name": "Stalwart Warrior",
         "EntityType": "Enemy",
         "Level": 1,
-        "Max HP": 16,
-        "Max MP": 2,
+        "MaxHP": 16,
+        "MaxMP": 2,
         "STR": 14,
         "RES": 12,
         "MND": 3,
@@ -322,8 +295,8 @@ entities = {
         "Name": "Volukuma",
         "EntityType": "Enemy",
         "Level": 1,
-        "Max HP": 10,
-        "Max MP": 2,
+        "MaxHP": 10,
+        "MaxMP": 2,
         "STR": 15,
         "RES": 8,
         "MND": 1,
@@ -336,8 +309,8 @@ entities = {
         "Name": "Slime",
         "EntityType": "Enemy",
         "Level": 1,
-        "Max HP": 20,
-        "Max MP": 0,
+        "MaxHP": 20,
+        "MaxMP": 0,
         "STR": 11,
         "RES": 10,
         "MND": 1,
@@ -351,8 +324,8 @@ entities = {
         "Name": "Enraged Warrior",
         "EntityType": "Enemy",
         "Level": 10,
-        "Max HP": 180,
-        "Max MP": 20,
+        "MaxHP": 180,
+        "MaxMP": 20,
         "STR": 105,
         "RES": 100,
         "MND": 30,
@@ -365,8 +338,8 @@ entities = {
         "Name": "Stalwart Wizard",
         "EntityType": "Enemy",
         "Level": 10,
-        "Max HP": 100,
-        "Max MP": 79,
+        "MaxHP": 100,
+        "MaxMP": 79,
         "STR": 30,
         "RES": 30,
         "MND": 80,
@@ -379,8 +352,8 @@ entities = {
         "Name": "Disgraced Monk",
         "EntityType": "Enemy",
         "Level": 20,
-        "Max HP": 250,
-        "Max MP": 100,
+        "MaxHP": 250,
+        "MaxMP": 100,
         "STR": 150,
         "RES": 110,
         "MND": 110,
@@ -393,8 +366,8 @@ entities = {
         "Name": "Sorcerer Supreme",
         "EntityType": "Enemy",
         "Level": 20,
-        "Max HP": 150,
-        "Max MP": 200,
+        "MaxHP": 150,
+        "MaxMP": 200,
         "STR": 30,
         "RES": 110,
         "MND": 200,
@@ -407,8 +380,8 @@ entities = {
         "Name": "Crafty Thief",
         "EntityType": "Enemy",
         "Level": 20,
-        "Max HP": 230,
-        "Max MP": 80,
+        "MaxHP": 230,
+        "MaxMP": 80,
         "STR": 165,
         "RES": 80,
         "MND": 100,
@@ -421,8 +394,8 @@ entities = {
         "Name": "Gelatinous King",
         "EntityType": "BossEnemy",
         "Level": 30,
-        "Max HP": 4000,
-        "Max MP": 50,
+        "MaxHP": 4000,
+        "MaxMP": 50,
         "STR": 270,
         "RES": 160,
         "MND": 100,
@@ -442,8 +415,8 @@ entities = {
         "Name": "Gelatinous Servant",
         "EntityType": "Enemy",
         "Level": 30,
-        "Max HP": 400,
-        "Max MP": 30,
+        "MaxHP": 400,
+        "MaxMP": 30,
         "STR": 190,
         "RES": 90,
         "MND": 100,
@@ -456,8 +429,8 @@ entities = {
         "Name": "Stone Golem",
         "EntityType": "BossEnemy",
         "Level": 30,
-        "Max HP": 1500,
-        "Max MP": 0,
+        "MaxHP": 1500,
+        "MaxMP": 0,
         "STR": 320,
         "RES": 210,
         "MND": 2,
@@ -590,8 +563,8 @@ def generate_party_member(party_level, name=""):
         "EntityType": "PlayerCharacter",
         "Job": "undecided",
         "Level": 1,
-        "Max HP": 1,
-        "Max MP": 1,
+        "MaxHP": 1,
+        "MaxMP": 1,
         "STR": 1,
         "RES": 1,
         "MND": 1,

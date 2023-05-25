@@ -93,8 +93,8 @@ item_data = {
             "ItemTrigger": "callback_pc_is_hit", # KWARGS FORMAT: entity_hit, entity_attacker
             "ItemCallback": "spiked_armor",
             "ItemStats": {
-                "Max HP": 0,
-                "Max MP": 0,
+                "MaxHP": 0,
+                "MaxMP": 0,
                 "STR": 0,
                 "RES": 10,
                 "MND": 0,
@@ -110,8 +110,8 @@ item_data = {
             "ItemTrigger": "callback_spell_is_casted",
             "ItemCallback": "medeas_blessing",
             "ItemStats": {
-                "Max HP": 0,
-                "Max MP": 0,            
+                "MaxHP": 0,
+                "MaxMP": 0,            
                 "STR": 0,
                 "RES": 0,
                 "MND": 20,
@@ -127,8 +127,8 @@ item_data = {
             "ItemCallback": "medeas_curse",
             "ItemTrigger": "callback_bloodthirsty_triggered",
             "ItemStats": {
-                "Max HP": 0,
-                "Max MP": 0,            
+                "MaxHP": 0,
+                "MaxMP": 0,            
                 "STR": 10,
                 "RES": 0,
                 "MND": 0,
@@ -163,8 +163,8 @@ item_data = {
         "ItemCallback": "",
         "ItemTrigger": "",
         "ItemStats": {
-            "Max HP": 0,
-            "Max MP": 0,            
+            "MaxHP": 0,
+            "MaxMP": 0,            
             "STR": 0,
             "RES": 0,
             "MND": 0,
