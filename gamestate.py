@@ -260,13 +260,13 @@ def pc_management_menu(chosen_pc):
     print(chosen_item.ItemDesc)
     if chosen_item.ItemType == "equip":
         if chosen_item.ItemSubtype == "weapon":
-            if chosen_item.ItemName == chosen_pc.EquippedWeapon.ItemName:
+            if chosen_item.id == chosen_pc.EquippedWeapon.id:
                 input(f"This is {chosen_pc.Name}'s equipped weapon.")
         if chosen_item.ItemSubtype == "armor":
-            if chosen_item.ItemName == chosen_pc.EquippedArmor.ItemName:
+            if chosen_item.id == chosen_pc.EquippedArmor.id:
                 input(f"This is {chosen_pc.Name}'s equipped armor.") 
         if chosen_item.ItemSubtype == "accessory":
-            if chosen_item.ItemName == chosen_pc.EquippedAccessories[0].ItemName and chosen_item.Equipped:
+            if chosen_item.id in [x.id for x in chosen_pc.EquippedAccessories]:
                 input(f"This is one of {chosen_pc.Name}'s equipped accessories.")
         cmd = input("\n(INPUT Y/N) Would you like to equip this item?").lower().strip()
         if cmd == "y":

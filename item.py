@@ -2,24 +2,31 @@ import os
 import copy
 import random
 import gamestate
+import uuid
 from gamestate import GAME_STATE, print_with_conf
 
 
 
 class Item(object):
     def __init__(self, template):
+        self.id = None
         self.ItemType = template["ItemType"]
         self.ItemQuality = template["ItemQuality"]
         self.ItemCallback = template["ItemCallback"]
         self.ItemTrigger = template["ItemTrigger"]
         self.ItemName = template["ItemName"]
         self.ItemDesc = template["ItemDesc"]
-        self.ItemNumber = 0
         if self.ItemType == "equip" or self.ItemType == "none":
             self.ItemSubtype = template["ItemSubtype"]
             self.ItemStats = template["ItemStats"]
             self.Equipped = False
-            
+
+    @staticmethod
+    def copy(other):
+        clone = copy.deepcopy(other)
+        clone.id = uuid.uuid4()
+        return clone
+
     def obtained(self, character):
         if self.ItemType == "passive":
             gamestate.add_callback(self.ItemTrigger, self.ItemCallback)
@@ -27,8 +34,7 @@ class Item(object):
 
         gamestate.run_callbacks("callback_item_pickup", entity_picking_up = character, item_picking_up = self)
 
-    def id(self):
-        pass
+
     def equip(self, character):
         if self.ItemType != "equip":
             return
@@ -177,39 +183,27 @@ def present_player_boss_item(item_pool = 1):
 
     random_item_from_pool = random.choice(list(item_data[item_pool].keys()))
     input(random_item_from_pool)
-    item = copy.deepcopy(item_data[item_pool][random_item_from_pool])
+    item = Item.copy(item_data[item_pool][random_item_from_pool])
     give_player_item(item)
 
 
-def get_item_from_name(item_id):
+def get_clone_by_name(item_id):
     for item_pools in item_data.keys():
         if item_id in item_data[item_pools].keys():
-            return item_data[item_pools][item_id]
-
-
-def same_item_check(item_1, item_2):
-    if item_1.ItemName == item_2.ItemName:
-        if item_1.ItemType == item_2.ItemType:
-            if item_1.ItemNumber == item_2.ItemNumber:
-                return True
-    return False
+            return Item.copy(item_data[item_pools][item_id])
 
 
 def give_player_item(item):
     print_with_conf(f"You found a(n) {item.ItemName}!")
-    counter = 0
     item_obtained = False
     for pc in GAME_STATE.player_party:
-        counter += 1
         if len(pc.Items) < 8 and not item_obtained:
             print_with_conf(f"{pc.Name} puts it in their inventory.")
             pc.Items.append(item)
             item_obtained = True
-            character_who_got_item = pc
-        if counter == len(pc.Items):
-            if not item_obtained:
-                print_with_conf("Khorynn puts it in the Stash.")
-                GAME_STATE.bagged_items.append(item)
+    if not item_obtained:
+        print_with_conf("Khorynn puts it in the Stash.")
+        GAME_STATE.bagged_items.append(item)
     item.obtained(pc)
 
 
@@ -217,15 +211,15 @@ def spiked_armor(entity_hit, entity_attacker, damage_dealt):
     if entity_hit.EquippedArmor is not None:
         if entity_hit.EquippedArmor.ItemCallback == "spiked_armor":
             damage_to_deal = int(damage_dealt*0.2)
-            print_with_conf(f"{enitity_attacker} gets hurt by {entity_hit.Name}'s Spiked Armor!'")
-            entity_attacker.HP -= damage
-            gamestate.run_callbacks("callback_entity_is_hit", entity_hit=target, entity_attacker=character, player_party=player_party, enemy_party=enemy)
-            gamestate.run_callbacks("callback_enemy_is_hit", entity_hit=target, entity_attacker=character, player_party=player_party, enemy_party=enemy)
+            print_with_conf(f"{entity_attacker.Name} gets hurt by {entity_hit.Name}'s Spiked Armor!'")
+            entity_attacker.HP -= damage_dealt
+            gamestate.run_callbacks("callback_entity_is_hit", entity_hit=entity_attacker, entity_attacker=entity_hit)
+            gamestate.run_callbacks("callback_enemy_is_hit", entity_hit=entity_attacker, entity_attacker=entity_hit)
 
             if entity_attacker.HP <= 0:
                 print_with_conf(f"{entity_attacker.Name} has fallen!")
                 gamestate.run_callbacks("callback_entity_is_dead", entity_dead=entity_attacker, entity_attacker=entity_hit)
-                gamestate.run_callbacks("callback_enemy_is_dead", entity_dead=target, entity_attacker=entity_hit)
-                turn_order.remove(target)
-                enemy.remove(target)
+                gamestate.run_callbacks("callback_enemy_is_dead", entity_dead=entity_attacker, entity_attacker=entity_hit)
+                # turn_order.remove(entity_attacker)
+                GAME_STATE.enemy_party.remove(entity_attacker)
 

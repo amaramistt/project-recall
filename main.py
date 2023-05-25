@@ -83,9 +83,9 @@ def main():
                 run += 1
 
         elif GAME_STATE.debug_mode:
-            item.give_player_item(item.get_item_from_name("MedeasBlessing"))
-            item.give_player_item(item.get_item_from_name("MedeasBlessing"))
-            item.give_player_item(item.get_item_from_name("SpikedArmor"))
+            item.give_player_item(item.get_clone_by_name("MedeasBlessing"))
+            item.give_player_item(item.get_clone_by_name("MedeasBlessing"))
+            item.give_player_item(item.get_clone_by_name("SpikedArmor"))
             while True:
                 print_with_conf("balls")
     
