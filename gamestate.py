@@ -164,10 +164,8 @@ def title_screen():
     elif cmd == "back":
         return None
     elif cmd == "debug":
-        input(f"{GAME_STATE.debug_mode}")
         print_with_conf("DEBUG  MODE  ENABLED!!!!!!!!", True)
         GAME_STATE.debug_mode = True
-        input(f"{GAME_STATE.debug_mode}")
         return begin_run_handler()
     else:
         print_with_conf("Invalid print_with_conf.", True)
@@ -188,60 +186,89 @@ def load_cutscene(cutscene_ID):
 
 def menu():
     os.system(CLEAR)
-    print("PARTY")
+    print("PARTY\n")
     for pc in GAME_STATE.player_party:
         print(pc.Name)
+    print("\n")
     print(f"Gold: {GAME_STATE.money}")
     print(f"Items in the Stash: {GAME_STATE.bagged_items}")
     print(f"Floor: {GAME_STATE.floor}")
+    print("\n")
 
     chosen_pc = None
-    cmd = input("(print_with_conf) print_with_conf a party member's name to see details about them. print_with_conf anything else to go back.").strip().lower()
+    cmd = input("(INPUT) Input a party member's name to see details about them. Input anything else to go back.").strip().lower()
     for pc in GAME_STATE.player_party:
         if cmd == pc.Name.lower():
             chosen_pc = pc
     if chosen_pc is None:
+        os.system(CLEAR)
         return
     else:
         pc_management_menu(chosen_pc)
 
-def print_with_conf(message, menu: bool = False):
+def print_with_conf(message, from_menu: bool = False):
     # Should replace every instance of print_with_conf() used to control the pace of the game
     # Allows access to the menu at any time, which means you can KNOW YOUR STATS!
-    confirm = input(message).lower().strip()
-    if confirm == "menu":
-        menu()
-    if confirm == "log":
-        for each_message in GAME_STATE.message_log:
-            print(each_message)
-    if not menu:
-        message_to_move = 18
-        slot_to_move_to = 19
-        while message_to_move > -1:
-            GAME_STATE.message_log[slot_to_move_to] = message_to_move
-        GAME_STATE.message_log[0] = message
+    confirmed = False
+    while not confirmed:
+        confirm = input(message).lower().strip()
+        if confirm == "menu":
+            menu()
+        elif confirm == "log":
+            os.system(CLEAR)
+            for each_message in GAME_STATE.message_log:
+                print(each_message)
+            input()
+            os.system(CLEAR)
+        else:
+            confirmed = True
+
+    if not from_menu:
+        GAME_STATE.message_log.insert(0, message)
+        if len(GAME_STATE.message_log) > 20:
+            GAME_STATE.message_log.remove(20)
     
         
 def pc_management_menu(chosen_pc):
     os.system(CLEAR)
     print(chosen_pc)
-    print(f"Items: {chosen_pc.Items}")
+    print(f"Weapon: {chosen_pc.EquippedWeapon}")
+    print(f"Armor: {chosen_pc.EquippedArmor}")
+    print(f"Accessory 1: {chosen_pc.EquippedAccessories[0]}")
+    print(f"Accessory 2: {chosen_pc.EquippedAccessories[1]}\n")
+    print("Items in their Inventory:")
+    for _ in range(len(chosen_pc.Items)):
+        print(f"{_ + 1}: {chosen_pc.Items[_]}")
+    print("\n\n")    
     chosen_item = None
-    cmd = input("(print_with_conf) print_with_conf an item's name to see details about it and do some operations on it. print_with_conf anything else to go back.").strip().lower()
-    for item in chosen_pc.Items:
-        if cmd == item.ItemName.lower():
-            chosen_item = item
-    if chosen_item is None:
+    cmd = input("(INPUT) Input an item number to see details about it and do some operations on it. Input anything else to go back.")
+    try:
+        cmd = int(cmd)
+    except ValueError:
         menu()
         return
-    else:
-        print(chosen_item.ItemName)
-        print(chosen_item.ItemDesc)
-        if chosen_item.ItemType == "equip":
-            cmd = input("(print_with_conf Y/N) Would you like to equip this item?").lower().strip()
-            if cmd == "y":
-                item.equip(chosen_pc)
-            else:
-                pc_management_menu(chosen_pc)
-                return
-        
+
+    cmd = 0 if cmd > 0 else cmd = cmd
+    cmd = len(chosen_pc.Items) - 1 if cmd >= len(chosen_pc.Items) else cmd = cmd    
+    chosen_item = chosen_pc.Items[cmd]
+    
+    os.system(CLEAR)
+    print(chosen_item.ItemName)
+    print(chosen_item.ItemDesc)
+    if chosen_item.ItemType == "equip":
+        if chosen_item.ItemSubtype == "weapon":
+            if chosen_item.ItemName == chosen_pc.EquippedWeapon.ItemName:
+                input(f"This is {chosen_pc.Name}'s equipped weapon.")
+        if chosen_item.ItemSubtype == "armor":
+            if chosen_item.ItemName == chosen_pc.EquippedArmor.ItemName:
+                input(f"This is {chosen_pc.Name}'s equipped armor.") 
+        if chosen_item.ItemSubtype == "accessory":
+            if chosen_item.ItemName == chosen_pc.EquippedAccessories[0].ItemName:
+                input(f"This is {chosen_pc.Name}'s equipped weapon.")
+        cmd = input("\n(INPUT Y/N) Would you like to equip this item?").lower().strip()
+        if cmd == "y":
+            chosen_item.equip(chosen_pc)
+        else:
+            pc_management_menu(chosen_pc)
+            return
+    

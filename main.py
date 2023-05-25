@@ -7,6 +7,9 @@
 #
 #    \/ DO AT SOME POINT LATER \/
 #    
+
+
+
 import os
 import sys
 import subprocess
@@ -35,7 +38,7 @@ def main():
     while not began:
         began = gamestate.title_screen()
     while began:
-        if GAME_STATE.debug_mode:
+        if not GAME_STATE.debug_mode:
             if run == 1:
                 os.system(CLEAR)
                 print_with_conf("Welcome to Project Recall!\nAt this moment, this game is mostly just a battle simulator.")
@@ -80,7 +83,9 @@ def main():
                 run += 1
 
         elif GAME_STATE.debug_mode:
-            item.present_player_item()
+            item.give_player_item(item.get_item_from_name("MedeasBlessing"))
+            item.give_player_item(item.get_item_from_name("MedeasBlessing"))
+            item.give_player_item(item.get_item_from_name("SpikedArmor"))
             while True:
                 print_with_conf("balls")
     

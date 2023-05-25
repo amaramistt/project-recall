@@ -1,10 +1,12 @@
 import os
 import random
 import copy
+import item
 
 from gamestate import GAME_STATE, print_with_conf
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
+item_data = item.get_item_data_map()
 
 stat_modifier_table = {
     -2: 0.5,
@@ -179,9 +181,9 @@ class Entity(object):
             self.JobEXP = 0
             self.MasteredJobs = []
             self.Items = []
-            self.EquippedWeapon = None
-            self.EquippedArmor = None
-            self.EquippedAccessories = []
+            self.EquippedWeapon = item_data["no_equip"]
+            self.EquippedArmor = item_data["no_equip"]
+            self.EquippedAccessories = [item_data["no_equip"], item_data["no_equip"]]
         self.StatChanges = {
             "STR": 0,
             "RES": 0,
@@ -199,7 +201,7 @@ class Entity(object):
 
     def __repr__(self):
         # makes it so that whenever the class object itself is printed, it prints the below instead!
-        return f'\nName: {self.Name}\nLevel: {self.Level}\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nJOB: {self.Job}\nSTR: {self.STR}\nRES: {self.RES}\nMND: {self.MND}\nAGI: {self.AGI}'
+        return f'Name: {self.Name}\nLevel: {self.Level}\nJob: {self.Job}\n\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
 
     def get_strength(self):
         return int(self.STR * stat_modifier_table[self.StatChanges["STR"]]) + self.EquipmentStats["STR"]
@@ -217,13 +219,14 @@ class Entity(object):
         new_value = self.StatChanges[stat_to_change] + stages_to_increment
         new_value = new_value if new_value <= 2 else 2
         new_value = new_value if new_value >= -2 else -2
+        
 
         self.StatChanges[stat_to_change] = new_value    
 
     def calc_equipment_stats(self):
         for stat in self.EquipmentStats.keys():
             self.EquipmentStats[stat] = 0
-
+        
         equip_hp_mod = self.EquippedArmor.ItemStats["Max HP"] + self.EquippedAccessories[0].ItemStats["Max HP"] + self.EquippedAccessories[1].ItemStats["Max HP"]
         equip_hp_mod = int(equip_hp_mod / 10)
         equipment_hp = self.MaxHP * equip_hp_mod
@@ -638,7 +641,6 @@ def present_player_party_members():
 
 
 def generate_khorynn(chosen_job):
-    input(GAME_STATE.debug_mode)
     if GAME_STATE.debug_mode:
         MEGAKHORYNN = copy.deepcopy(entities["MEGAKHORYNN"])
         return MEGAKHORYNN
