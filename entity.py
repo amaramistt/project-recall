@@ -228,32 +228,32 @@ class Entity(object):
             self.EquipmentStats[stat] = 0
         
         equip_hp_mod = self.EquippedArmor.ItemStats["Max HP"] + self.EquippedAccessories[0].ItemStats["Max HP"] + self.EquippedAccessories[1].ItemStats["Max HP"]
-        equip_hp_mod = int(equip_hp_mod / 10)
+        equip_hp_mod = int(equip_hp_mod / 100)
         equipment_hp = self.MaxHP * equip_hp_mod
         self.EquipmentStats["Max HP"] = equipment_hp
 
         equip_mp_mod = self.EquippedArmor.ItemStats["Max MP"] + self.EquippedAccessories[0].ItemStats["Max MP"] + self.EquippedAccessories[1].ItemStats["Max MP"]
-        equip_mp_mod = int(equip_mp_mod / 10)
+        equip_mp_mod = int(equip_mp_mod / 100)
         equipment_mp = self.MaxMP * equip_mp_mod
         self.EquipmentStats["Max MP"] = equipment_mp
 
         equip_str_mod = self.EquippedArmor.ItemStats["STR"] + self.EquippedAccessories[0].ItemStats["STR"] + self.EquippedAccessories[1].ItemStats["STR"]
-        equip_str_mod = int(equip_str_mod / 10)
+        equip_str_mod = int(equip_str_mod / 100)
         equipment_str = self.STR * equip_str_mod
         self.EquipmentStats["STR"] = equipment_str
 
         equip_res_mod = self.EquippedArmor.ItemStats["RES"] + self.EquippedAccessories[0].ItemStats["RES"] + self.EquippedAccessories[1].ItemStats["RES"]
-        equip_res_mod = int(equip_res_mod / 10)
+        equip_res_mod = int(equip_res_mod / 100)
         equipment_res = self.RES * equip_res_mod
         self.EquipmentStats["RES"] = equipment_res
 
         equip_mind_mod = self.EquippedArmor.ItemStats["MND"] + self.EquippedAccessories[0].ItemStats["MND"] + self.EquippedAccessories[1].ItemStats["MND"]
-        equip_mind_mod = int(equip_mind_mod / 10)
+        equip_mind_mod = int(equip_mind_mod / 100)
         equipment_mind = self.MND * equip_mind_mod
         self.EquipmentStats["MND"] = equipment_mind
 
         equip_agi_mod = self.EquippedArmor.ItemStats["AGI"] + self.EquippedAccessories[0].ItemStats["AGI"] + self.EquippedAccessories[1].ItemStats["AGI"]
-        equip_agi_mod = int(equip_agi_mod / 10)
+        equip_agi_mod = int(equip_agi_mod / 100)
         equipment_agi = self.AGI * equip_agi_mod
         self.EquipmentStats["AGI"] = equipment_agi
 

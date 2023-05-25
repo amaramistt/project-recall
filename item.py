@@ -40,11 +40,11 @@ class Item(object):
                 if character.EquippedWeapon.ItemType is not "none":
                     gamestate.remove_callback(character.EquippedWeapon.ItemTrigger, character.EquippedWeapon.ItemCallback)
                     print_with_conf(f"{character.EquippedWeapon.ItemName} was unequipped!")   
-                    character.EquippedWeapon.Equipped = False                    
+                    character.EquippedWeapon.Equipped = False
                 character.EquippedWeapon = self
                 self.Equipped = True
                 gamestate.add_callback(character.EquippedWeapon.ItemTrigger, character.EquippedWeapon.ItemCallback)
-                print_with_conf(f"{character.Name} equipped {self.ItemName}!")                
+                print_with_conf(f"{character.Name} equipped {self.ItemName}!")
                 
             elif self.ItemSubtype == "armor":
                 if character.EquippedArmor.ItemType is not "none":

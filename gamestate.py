@@ -248,12 +248,15 @@ def pc_management_menu(chosen_pc):
         menu()
         return
 
-    cmd = 0 if cmd > 0 else cmd = cmd
-    cmd = len(chosen_pc.Items) - 1 if cmd >= len(chosen_pc.Items) else cmd = cmd    
-    chosen_item = chosen_pc.Items[cmd]
+    cmd = 1 if cmd <= 0 else cmd
+    cmd = len(chosen_pc.Items) if cmd > len(chosen_pc.Items) else cmd
+    chosen_item = chosen_pc.Items[cmd - 1]
     
     os.system(CLEAR)
     print(chosen_item.ItemName)
+    print(f"Item Type: {chosen_item.ItemType}")
+    if chosen_item.ItemType == "equip":
+        print(f"Equipment Type: {chosen_item.ItemSubtype}")
     print(chosen_item.ItemDesc)
     if chosen_item.ItemType == "equip":
         if chosen_item.ItemSubtype == "weapon":
@@ -268,7 +271,5 @@ def pc_management_menu(chosen_pc):
         cmd = input("\n(INPUT Y/N) Would you like to equip this item?").lower().strip()
         if cmd == "y":
             chosen_item.equip(chosen_pc)
-        else:
-            pc_management_menu(chosen_pc)
-            return
-    
+        pc_management_menu(chosen_pc)
+        return
