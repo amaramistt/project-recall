@@ -266,8 +266,8 @@ def pc_management_menu(chosen_pc):
             if chosen_item.ItemName == chosen_pc.EquippedArmor.ItemName:
                 input(f"This is {chosen_pc.Name}'s equipped armor.") 
         if chosen_item.ItemSubtype == "accessory":
-            if chosen_item.ItemName == chosen_pc.EquippedAccessories[0].ItemName:
-                input(f"This is {chosen_pc.Name}'s equipped weapon.")
+            if chosen_item.ItemName == chosen_pc.EquippedAccessories[0].ItemName and chosen_item.Equipped:
+                input(f"This is one of {chosen_pc.Name}'s equipped accessories.")
         cmd = input("\n(INPUT Y/N) Would you like to equip this item?").lower().strip()
         if cmd == "y":
             chosen_item.equip(chosen_pc)

@@ -24,8 +24,11 @@ class Item(object):
         if self.ItemType == "passive":
             gamestate.add_callback(self.ItemTrigger, self.ItemCallback)
             GAME_STATE.passives.append(self)
+
         gamestate.run_callbacks("callback_item_pickup", entity_picking_up = character, item_picking_up = self)
 
+    def id(self):
+        pass
     def equip(self, character):
         if self.ItemType != "equip":
             return
@@ -168,7 +171,7 @@ def get_item_data_map():
     return item_data
 
 
-def present_player_item(item_pool = 1):
+def present_player_boss_item(item_pool = 1):
     print_with_conf("You find a treasure chest near the boss's corpse!")
     print_with_conf("You reach inside...")
 
