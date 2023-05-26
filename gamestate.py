@@ -14,11 +14,12 @@ class GameState(object):
         self.enemy_party = []
         self.bagged_items = []
         self.passives = []
-        self.money = 0
         self.floor = 0
         self.in_battle = False
         self.message_log = []
         self.debug_mode = False
+        self.player_changed_jobs = False
+        self.player_got_new_party_member = False
 
 
 GAME_STATE = GameState()
@@ -174,6 +175,44 @@ def title_screen():
 
 ###
 
+def rest_time():
+    GAME_STATE.player_changed_jobs = False
+    GAME_STATE.player_got_new_party_member = False
+    os.system(CLEAR)
+    player_has_party = True
+    if len(GAME_STATE.player_party) > 1:
+        player_has_party = True
+    # establish safe zone and max out party HP and MP
+    print_with_conf("After finishing the battle, feel exhausted and seek shelter.")
+    print_with_conf("As soon as you find a suitable area to rest, you start a campfire and sit down once your work is done.")
+    if player_has_party:
+        print_with_conf("Your party quickly follow your lead.")
+    print_with_conf("Rejuvenated by the comforting warmth, your health and mental capacity are restored.")
+    for pc in GAME_STATE.player_party:
+        pc.HP = pc.MaxHP
+        pc.MP = pc.MaxMP
+    print_with_conf("Party's HP and MP maxed out!")
+    
+    while True:
+        os.system(CLEAR)
+        
+        print("The dying fire inspires thought... There are many things you could do to prepare for the dangers ahead.")
+        cmd = input("Will you visit Olivia's 'party' planning service?\nWould you rather take a look at your stats and manage your items in the 'menu'?\n(INPUT) Are you 'done' resting up?    ").lower().strip()
+        
+        if cmd == "party":
+            ENTY.party_place_handler()
+            
+        if cmd == "menu":
+            menu()
+            
+        if cmd == "done":
+            if player_has_party:
+                print_with_conf("You stand up, and your party follows your lead. Putting out the flame, you venture forth.")
+                return
+                
+            else:
+                print_with_conf("You stand up, putting out the flame. You begin to venture forth on your own.")
+                return
 
 def load_cutscene(cutscene_ID):
     # IN CONSTRUCTION 
@@ -196,15 +235,101 @@ def menu():
     print("\n")
 
     chosen_pc = None
-    cmd = input("(INPUT) Input a party member's name to see details about them. Input anything else to go back.").strip().lower()
+    cmd = input("(INPUT) Input a party member's name to see details about them.\nInput 'Stash' to operate on items in the Stash.\nInput anything else to go back.  ").strip().lower()
+    
     for pc in GAME_STATE.player_party:
         if cmd == pc.Name.lower():
             chosen_pc = pc
+    if cmd == "stash":
+        stash_management_menu()
     if chosen_pc is None:
         os.system(CLEAR)
         return
     else:
         pc_management_menu(chosen_pc)
+
+
+def stash_management_menu():
+    if len(GAME_STATE.bagged_items) != 0:
+        for item_number in range(len(GAME_STATE.bagged_items)):
+            print(f"{item_number + 1}: {GAME_STATE.bagged_items[item_number]}")
+    else:
+        input("There are no items in the Stash.")
+        menu()
+        return
+    cmd = input(f"(INPUT) Which number item would you like to work with? For example, '1' is your {GAME_STATE.bagged_items[0]}. Input anything else to go back.  ").strip()
+    try:
+        cmd = int(cmd)
+    except ValueError:
+        menu()
+        return
+
+    cmd = 1 if cmd <= 0 else cmd
+    cmd = len(GAME_STATE.bagged_items) if cmd > len(GAME_STATE.bagged_items) else cmd
+    chosen_item = GAME_STATE.bagged_items[cmd - 1]
+
+    os.system(CLEAR)
+    print(f"Item Name: {chosen_item.ItemName}")
+    print(f"Item Description: {chosen_item.ItemDesc}")
+    print(f"Item Type: {chosen_item.ItemType}")
+    if chosen_item.ItemType == "equip":
+        print(f"Equipment Type: {chosen_item.ItemSubtype}")
+    print("\n\n")
+    if chosen_item.ItemType == "active":
+        print("Would you like to 'use' this item?")
+        
+    cmd = input("Would you like to 'move' this item to a character's inventory?\nWould you like to 'discard' this item?\n(INPUT)   ").lower().strip()
+    
+    if chosen_item.ItemType == "active":
+        if cmd == "use":
+            input("THERE ARE NO ACTIVE ITEMS. HOW IS THIS PASSING. PLEASE STOP IT.")
+            
+    if cmd == "move":
+        move_item_menu(chosen_item)
+    elif cmd == "discard":
+        cmd2 = input(f"(INPUT Y/N) Are you SURE you want to discard the {chosen_item.ItemName}?   ").strip().lower()
+        if cmd2 == "y":
+            input(f"You threw the {chosen_item.ItemName} away. It shatters instantly.")
+            GAME_STATE.bagged_items.remove(chosen_item)
+            menu()
+            return
+        else:
+            stash_management_menu()
+            return
+
+def move_item_menu(chosen_item, inventory = GAME_STATE.bagged_items):
+    if chosen_item.Equipped:
+        input("That item is currently equipped by someone! Unequip it first!")
+        return
+    
+    chars_to_print = []
+    for pc in GAME_STATE.player_party:
+        if len(pc.Items) < 8:
+            chars_to_print.append(pc)
+
+    print(f"Party members with inventory space")
+    for pc in chars_to_print:
+        print(pc.Name)
+    print("\n\n")
+    
+    cmd2 = input(f"(INPUT) Input the name of the character you would like to hold the {chosen_item.ItemName}. Input anything else to go back.   ").strip().lower()
+    
+    selected_pc = None
+    for pc in chars_to_print:
+        if cmd2 == pc.Name.lower():
+            selected_pc = pc
+            break 
+            
+    if selected_pc is not None:
+        input(f"{selected_pc.Name} takes the {chosen_item.ItemName} and puts it in their inventory!")
+        inventory.remove(chosen_item)
+        selected_pc.Items.append(chosen_item)
+        menu()
+        return
+        
+    else:
+        menu()
+        return    
 
 def print_with_conf(message, from_menu: bool = False):
     # Should replace every instance of print_with_conf() used to control the pace of the game
@@ -226,7 +351,7 @@ def print_with_conf(message, from_menu: bool = False):
     if not from_menu:
         GAME_STATE.message_log.insert(0, message)
         if len(GAME_STATE.message_log) > 20:
-            GAME_STATE.message_log.remove(20)
+            GAME_STATE.message_log.remove(GAME_STATE.message_log[20])
     
         
 def pc_management_menu(chosen_pc):
@@ -261,15 +386,45 @@ def pc_management_menu(chosen_pc):
     if chosen_item.ItemType == "equip":
         if chosen_item.ItemSubtype == "weapon":
             if chosen_item.id == chosen_pc.EquippedWeapon.id:
-                input(f"This is {chosen_pc.Name}'s equipped weapon.")
+                print(f"This is {chosen_pc.Name}'s equipped weapon.")
         if chosen_item.ItemSubtype == "armor":
             if chosen_item.id == chosen_pc.EquippedArmor.id:
-                input(f"This is {chosen_pc.Name}'s equipped armor.") 
+                print(f"This is {chosen_pc.Name}'s equipped armor.") 
         if chosen_item.ItemSubtype == "accessory":
             if chosen_item.id in [x.id for x in chosen_pc.EquippedAccessories]:
-                input(f"This is one of {chosen_pc.Name}'s equipped accessories.")
-        cmd = input("\n(INPUT Y/N) Would you like to equip this item?").lower().strip()
-        if cmd == "y":
+                print(f"This is one of {chosen_pc.Name}'s equipped accessories.")
+    print("\n\n")
+    if chosen_item.ItemType == "active":
+        print("Would you like to 'use' this item?")
+    if chosen_item.ItemType == "equip":
+        print("Would you like to 'equip' this item?")
+        
+    cmd = input("Would you like to 'move' this item to a character's inventory?\nWould you like to 'discard' this item?\n(INPUT)   ").lower().strip()
+    
+    if chosen_item.ItemType == "equip":
+        if cmd == "equip":
             chosen_item.equip(chosen_pc)
+            pc_management_menu(chosen_pc)
+            return
+            
+    if chosen_item.ItemType == "active":
+        input("HOW????")
+        pc_management_menu(chosen_pc)
+        return
+        
+    if cmd == "move":
+        move_item_menu(chosen_item, chosen_pc.Items)
+    if cmd == "discard":
+        if chosen_item.Equipped:
+            input("This item is equipped! If you want to discard it, unequip it first.")
+            pc_management_menu(chosen_pc)
+            return
+        cmd2 = input(f"(INPUT Y/N) Are you SURE you want to discard the {chosen_item.ItemName}?   ").strip().lower()
+        if cmd2 == "y":
+            input(f"You threw the {chosen_item.ItemName} away. It shatters instantly.")
+            chosen_pc.Items.remove(chosen_item)
+            menu()
+            return
+    else:
         pc_management_menu(chosen_pc)
         return

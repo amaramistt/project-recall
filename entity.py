@@ -599,7 +599,7 @@ def present_player_party_members():
                 cmd = int(cmd)
             except ValueError:
                 print_with_conf("You must print_with_conf a number!")
-                cmd = input("(print_with_conf) Which number option do you choose to join your party?")
+                cmd = input("(INPUT) Which number option do you choose to join your party?")
         if cmd == 1:
             print_with_conf(f"You chose {char_1.Name}! They join your party!")
             GAME_STATE.player_party.append(char_1)
@@ -661,48 +661,41 @@ def job_change_handler():
     
 
 def party_place_handler():
-    player_got_new_party_member = False
-    player_changed_jobs = False
+    GAME_STATE.player_got_new_party_member = False
+    GAME_STATE.player_changed_jobs = False
     player_is_finished = False
 
     while not player_is_finished:
         os.system(CLEAR)
         print("OLIVIA) Welcome to my party planning place.\n* What are you looking to be done today, love?")
-        cmd = input("(print_with_conf) You think of whether you want to find a new 'party member' or 'change jobs'... or just 'leave'.  ").strip().lower()
+        cmd = input("(INPUT) You think of whether you want to find a new 'party member' or 'change jobs'... or just 'leave'.  ").strip().lower()
         
         if cmd == "party member":
-            if not player_got_new_party_member:
+            if not GAME_STATE.player_got_new_party_member:
                 present_player_party_members()
-                player_got_new_party_member = True
+                GAME_STATE.player_got_new_party_member = True
             else:
                 print_with_conf("OLIVIA) You already chose one of the two I gave you, Khorynn. There isn't anyone else to take.")
                 
         elif cmd == "change jobs":
-            if not player_changed_jobs:
+            if not GAME_STATE.player_changed_jobs:
                 job_change_handler()
-                player_changed_jobs = True
+                GAME_STATE.player_changed_jobs = True
             else:
                 print_with_conf("OLIVIA) Khorynn, honey, you already changed jobs. You know I don't have the energy to do that again.")
                 
         elif cmd == "leave":
-            if not player_got_new_party_member:
-                confirm = input("OLIVIA) Hey, love, you haven't taken anyone new with you. Did you mean to do that?\n(print_with_conf) Y/N  ").strip().lower()
-                if confirm == "y" or confirm == "yes":
-                    print_with_conf("OLIVIA) ...Alright, love. Whatever floats your boat.")
-                    player_got_new_party_member = True
-                else:
-                    print_with_conf("OLIVIA) Alright, Khorynn. Now, where was I...?")
-            if not player_changed_jobs:
-                confirm = input("OLIVIA) Khorynn, you haven't changed anyone's job. You sure you don't want to swap?\n(print_with_conf) Y/N  ").strip().lower()
-                if confirm == "y" or confirm == "yes":
-                    print_with_conf("OLIVIA) Got it, love. Staying on your current path for now.")
-                    player_changed_jobs = True
-                else:
-                    print_with_conf("OLIVIA) Alright, Khorynn. Now, where was I...?")
-            if player_changed_jobs and player_got_new_party_member:
+            if GAME_STATE.player_changed_jobs and GAME_STATE.player_got_new_party_member:
                 print_with_conf("OLIVIA) Godspeed, Khorynn. May nothing stand in your way.")
                 player_is_finished = True
-###
+            else:
+                conf = input("OLIVIA) Hey, Khorynn! Leaving so soon? You didn't do everything you could, did you mean to leave?\n(INPUT Y/N)   ").lower().strip()
+                if conf == "y":
+                    print_with_conf("OLIVIA) ...Alright. Godspeed, Khorynn. May nothing stand in your way.")
+                    player_is_finished = True
+                else:
+                    print_with_conf("OLIVIA) Ah! Alright, where was I...?")
+###             
 
 
 

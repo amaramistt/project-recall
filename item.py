@@ -39,8 +39,22 @@ class Item(object):
         if self.ItemType != "equip":
             return
         if self.Equipped == True:
-            print(f"{character.Name} tried equipping something they've already equipped!")
-            input("After a few minutes of fumbling around, they realize what they're doing and stop.")
+            print(f"This is currently equipped by {character.Name}!")
+            cmd = input("(INPUT Y/N) Would you like to unequip it?    ").lower().strip()
+            if cmd == "y":
+                input(f"{self.ItemName} was unequipped!")
+                if character.EquippedWeapon.id == self.id:
+                    character.EquippedWeapon = item_data["no_equip"]
+                    self.Equipped = False
+                if character.EquippedArmor.id == self.id:
+                    character.EquippedArmor = item_data["no_equip"]
+                    self.Equipped = False
+                for accessory in range(len(character.EquippedAccessories)):
+                    if character.EquippedAccessories[accessory].id == self.id:
+                        character.EquippedAccessories[accessory] = item_data["no_equip"]
+                        self.Equipped = False
+                        break 
+            character.calc_equipment_stats()
             return
             
         if self in character.Items:
@@ -194,7 +208,7 @@ def get_clone_by_name(item_id):
 
 
 def give_player_item(item):
-    print_with_conf(f"You found a(n) {item.ItemName}!")
+    print_with_conf(f"You obtained a(n) {item.ItemName}!")
     item_obtained = False
     for pc in GAME_STATE.player_party:
         if len(pc.Items) < 8 and not item_obtained:
@@ -205,6 +219,9 @@ def give_player_item(item):
         print_with_conf("Khorynn puts it in the Stash.")
         GAME_STATE.bagged_items.append(item)
     item.obtained(pc)
+
+
+
 
 
 def spiked_armor(entity_hit, entity_attacker, damage_dealt):
