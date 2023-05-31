@@ -27,55 +27,56 @@ class GameState(object):
 
 GAME_STATE = GameState()
 
+callback_trigger_args = {
+    "callback_entity_is_hit": ["entity_hit", "entity_attacker", "damage_dealt"],
+    "callback_pc_is_hit": ["entity_hit", "entity_attacker", "damage_dealt"],
+    "callback_enemy_is_hit": ["entity_hit", "entity_attacker", "damage_dealt"],
+    "callback_entity_is_dead": ["entity_dead", "entity_attacker"],
+    "callback_pc_is_dead": ["entity_dead", "entity_attacker"],
+    "callback_enemy_is_dead": ["entity_dead", "entity_attacker"],
+    "callback_entity_is_targeted": ["entity_targeted", "entity_attacking", "attacker_action"],
+    "callback_pc_is_targeted": ["entity_targeted", "entity_attacking", "attacker_action"],
+    "callback_enemy_is_targeted": ["entity_targeted", "entity_attacking", "attacker_action"],
+    "callback_spell_is_casted": ["entity_casting", "entity_targeted", "spell_casted"],
+    "callback_stat_is_changed": ["entity_buffing_debuffing", "stat_changed", "change_stages"],
+    "callback_bloodthirsty_triggered": ["entity_bloodthirsty"],
+    "callback_turn_phase_1": [],
+    "callback_turn_phase_2": [],
+    "callback_turn_phase_3": [],
+    "callback_item_pickup": ["entity_picking_up", "item_picking_up"]
+}
+
 callback_triggers = {
-    "callback_entity_is_hit": [], # KWARGS FORMAT: entity_hit, entity_attacker, damage_dealt
-    
-    "callback_pc_is_hit": [], # KWARGS FORMAT: entity_hit, entity_attacker, damage_dealt
-    
-    "callback_enemy_is_hit": [], # KWARGS FORMAT: entity_hit, entity_attacker, damage_dealt
-    
-    "callback_entity_is_dead": [], # KWARGS FORMAT: entity_dead, entity_attacker
-    
-    "callback_pc_is_dead": [], # KWARGS FORMAT: entity_dead, entity_attacker
-    
-    "callback_enemy_is_dead": [], # KWARGS FORMAT: entity_dead, entity_attaker
-    
-    "callback_entity_is_targeted": [], #KWARGS FORMAT: entity_targeted, entity_attacking, attacker_action
-    
-    "callback_pc_is_targeted": [], #KWARGS FORMAT: entity_targeted, entity_attacking, attacker_action
-    
-    "callback_enemy_is_targeted": [], #KWARGS FORMAT: entity_targeted, entity_attacking, attacker_action
-    
-    "callback_spell_is_casted": [], #KWARGS FORMAT: entity_casting, enitity_targeted, spell_casted
-    
-    "callback_stat_is_changed": [], #KWARGS FORMAT: entity_buffing_debuffing, stat_changed, change_stages
-    
-    "callback_bloodthirsty_triggered": [], #KWARGS FORMAT: entity_bloodthirsty
-
-    "callback_turn_phase_1": [], #KWARGS FORMAT: 
-
-    "callback_turn_phase_2": [], #KWARGS FORMAT: 
-
-    "callback_turn_phase_3": [], #KWARGS FORMAT: 
-    
-    "callback_item_pickup": [], #KWARGS FORMAT: entity_picking_up, item_picking_up
+    "callback_entity_is_hit": [],
+    "callback_pc_is_hit": [],
+    "callback_enemy_is_hit": [],
+    "callback_entity_is_dead": [],
+    "callback_pc_is_dead": [],
+    "callback_enemy_is_dead": [],
+    "callback_entity_is_targeted": [],
+    "callback_pc_is_targeted": [],
+    "callback_enemy_is_targeted": [],
+    "callback_spell_is_casted": [],
+    "callback_stat_is_changed": [],
+    "callback_bloodthirsty_triggered": [],
+    "callback_turn_phase_1": [],
+    "callback_turn_phase_2": [],
+    "callback_turn_phase_3": [],
+    "callback_item_pickup": [],
 }
 
 def get_callback_triggers_map():
     return callback_triggers
     
 def add_callback(trigger, callback):
-    # Takes a given "stringified" callback and adds it to the value of a given trigger in callback_triggers
-    # To add a callback that should happen every time some*thing* dies:
-    # add_callback("callback_entity_is_dead", "something_died")
-    # NOT WORKING. COMMENT HIM.
-    # if trigger == "" or callback == "":
-    #     return
-    # callback_triggers[trigger].append(callback)
-    pass
+    if trigger not in callback_triggers:
+        raise ValueError(f"{trigger} is FAKE!!! not a real callback")
+    callback_triggers[trigger].append(callback)
 
 def remove_callback(trigger, callback):
-    if trigger == "" or callback == "":
+    if trigger not in callback_triggers:
+        raise ValueError(f"{trigger} is FAKE!!! not a real callback")
+    if callback not in callback_triggers[trigger]:
         return
     callback_triggers[trigger].remove(callback)
 
@@ -84,8 +85,8 @@ def run_callbacks(trigger, **kwargs):
     # kwargs are callback-dependent; each one has a different format that gives things that they might need
     # check the callback_triggers dict for the format
     for callback in callback_triggers[trigger]:
-        run_callback = globals()[callback]
-        run_callback(**kwargs)
+        callback_args = {k: kwargs[k] for k in callback_trigger_args[trigger]}
+        callback(**callback_args)
 
 def print_tutorial():
     print("Basic Combat Tutorial")

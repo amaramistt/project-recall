@@ -431,7 +431,7 @@ def king_slime(gel_king, initiative_list, enemies_spawned):
     bloodthirsty = None
 
     if "king_slime_spawn_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
-        gamestate.add_callback("callback_enemy_is_hit", "king_slime_spawn_phase_handler")
+        gamestate.add_callback("callback_enemy_is_hit", king_slime_spawn_phase_handler)
     if "king_slime_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
         gamestate.add_callback("callback_enemy_is_dead", "king_slime_death_logic")
 
@@ -524,7 +524,7 @@ def stone_golem(golem, initiative_list, enemies_spawned):
     if "stone_golem_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
         gamestate.add_callback("callback_enemy_is_hit", "stone_golem_phase_handler")
     if "stone_golem_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
-        gamestate.add_callback("callback_enemy_is_dead", "stone_golem_phase_handler")
+        gamestate.add_callback("callback_enemy_is_dead", "stone_golem_death_logic")
 
 
     cant_see_kill = True
@@ -831,4 +831,3 @@ def talk(user, turn_order):
         return None
     elif target.Level > int(target.MND / 10):
         gamestate.print_with_conf(f"Most of your words fly over the enemy's head, but you might be convincing them...!")
-        

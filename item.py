@@ -33,7 +33,7 @@ class Item(object):
             gamestate.add_callback(self.ItemTrigger, self.ItemCallback)
             GAME_STATE.passives.append(self)
 
-        gamestate.run_callbacks("callback_item_pickup", entity_picking_up = character, item_picking_up = self)
+        gamestate.run_callbacks("callback_item_pickup", entity_picking_up=character, item_picking_up=self)
 
 
     def equip(self, character):
@@ -96,7 +96,23 @@ class Item(object):
     def __repr__(self):
         return f"{self.ItemName}"
 
-            
+##########################
+#    ITEM CALLBACKS      #
+##########################
+
+
+def spiked_armor(entity_hit, entity_attacker, damage_dealt):
+    pass
+
+
+def medeas_blessing(entity_buffing_debuffing, stat_changed, change_stages):
+    pass
+
+
+##########################
+#       ITEM DATA        #
+##########################
+
 item_data = {
     1: { # Boss Drop Pool (standard item pool)
         "MedeasBlessing": Item({
@@ -106,7 +122,7 @@ item_data = {
             "ItemSubtype": "accessory",
             "ItemQuality": 2,        
             "ItemTrigger": "callback_spell_is_casted",
-            "ItemCallback": "medeas_blessing",
+            "ItemCallback": medeas_blessing,
             "ItemStats": {
                 "MaxHP": 0,
                 "MaxMP": 0,            
@@ -310,20 +326,4 @@ def shop():
             return
     print_with_conf("ORNALDO) Come back when you have more money!")
 
-
-def spiked_armor(entity_hit, entity_attacker, damage_dealt):
-    if entity_hit.EquippedArmor is not None:
-        if entity_hit.EquippedArmor.ItemCallback == "spiked_armor":
-            damage_to_deal = int(damage_dealt*0.2)
-            print_with_conf(f"{entity_attacker.Name} gets hurt by {entity_hit.Name}'s Spiked Armor!'")
-            entity_attacker.HP -= damage_dealt
-            gamestate.run_callbacks("callback_entity_is_hit", entity_hit=entity_attacker, entity_attacker=entity_hit)
-            gamestate.run_callbacks("callback_enemy_is_hit", entity_hit=entity_attacker, entity_attacker=entity_hit)
-
-            if entity_attacker.HP <= 0:
-                print_with_conf(f"{entity_attacker.Name} has fallen!")
-                gamestate.run_callbacks("callback_entity_is_dead", entity_dead=entity_attacker, entity_attacker=entity_hit)
-                gamestate.run_callbacks("callback_enemy_is_dead", entity_dead=entity_attacker, entity_attacker=entity_hit)
-                # turn_order.remove(entity_attacker)
-                GAME_STATE.enemy_party.remove(entity_attacker)
 
