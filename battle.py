@@ -172,7 +172,7 @@ def run_encounter():
             if actor.HP <= 0:
                 if actor in initiative_list:
                     initiative_list.remove(actor)
-                actor = initiative_list[0]
+                continue
                 
             # Check if the battle's over BEFORE normal turn/AFTER bloodthirsty
             if check_if_battle_won() is not None:
@@ -371,31 +371,31 @@ def damage_calc(attacker, defender, magic: bool = False, crit_enabled: bool = Tr
     if critical > 1:
         print("It's a critical hit!")
 
+    defense = defender.get_res()
+    attack = attacker.get_strength() if not magic else attacker.get_mind()
+    
     if not magic:
-        # gamestate.print_with_conf("damage type = physical")
-        damage = attacker.get_strength() * level_differential
-        # gamestate.print_with_conf(f"attacker strength = {attacker.get_strength()} times level differential of {level_differential} = {damage}")
-        damage = defender.get_res() * 0.6 / level_differential
-        # gamestate.print_with_conf(f"defender res = {defender.get_res()} times 0.7 equals {defender.get_res() * 0.6} divided by level diff of {level_differential} = {damage}")
-        damage = ((attacker.get_strength() * level_differential) - ((defender.get_res() * 0.6) / level_differential))
-        damage = damage * critical
-        # gamestate.print_with_conf(f"effective strength minus effective resilience times critical = {damage}")
-        damage = int(damage * random.uniform(0.9, 1.1))
-        # gamestate.print_with_conf(f"after variation of +-10% = {damage}")
+        if attack >= defense:
+            damage = attack * 2 - defense
+        else:
+            damage = attack * attack / defense
+
+        damage = int(damage * random.uniform(0.9, 1.1)) * critical
+
         if damage >= 0:
             return damage
         else:
             return 0
 
     elif magic:
-        # gamestate.print_with_conf("damage type = magic")
-        damage = attacker.get_mind() * level_differential
-        # gamestate.print_with_conf(f"attacker mind = {attacker.get_mind()} times level differential of {level_differential} = {damage}")
-        # gamestate.print_with_conf(f"magic ignores enemy resilience")
-        damage = damage * critical
-        # gamestate.print_with_conf(f"effective mind times critical = {damage}")
-        damage = int(damage * random.uniform(0.9, 1.1))
-        # gamestate.print_with_conf(f"after integerification and variation of +-10% = {damage}")
+        defense -= int(defense * 0.2)
+        if attack >= defense:
+            damage = attack * 2 - defense
+        else:
+            damage = attack * attack / defense
+
+        damage = int(damage * random.uniform(0.9, 1.1)) * critical
+
         if damage >= 0:
             return damage
         else:
@@ -407,18 +407,24 @@ def damage_calc(attacker, defender, magic: bool = False, crit_enabled: bool = Tr
 
 def battle_cleanup(enemies, won_battle = True):
     os.system(CLEAR)
+    xp_to_gain = 0
+    money_to_gain = 0
     if won_battle == True:
         print("B A T T L E  W O N !")
         for actors in enemies:
             print(f"You defeated {actors.Name}!")
+            xp_to_gain += actors.EXP_Reward
+            money_to_gain += actors.Money_Reward
+        gamestate.print_with_conf(f"You earned {xp_to_gain} EXP and found {money_to_gain} gold!")
         for pc in GAME_STATE.player_party:
             pc.StatChanges["STR"] = 0
             pc.StatChanges["RES"] = 0
             pc.StatChanges["MND"] = 0
             pc.StatChanges["AGI"] = 0
+        GAME_STATE.xp_count += xp_to_gain
+        GAME_STATE.money += money_to_gain
     if won_battle == False:
         gamestate.print_with_conf("Khorynn's party wiped! You lose!")
-        gamestate.open_file("assets/sprites/peter_griffin_fortnite.jpeg")
     return won_battle
 
 def king_slime(gel_king, initiative_list, enemies_spawned):
@@ -707,7 +713,7 @@ def focus(user, turn_order):
         gamestate.print_with_conf(f"{user.Name} used Focus!")
         gamestate.print_with_conf("They take a deep breath and center their thoughts...")
         gamestate.print_with_conf("They feel better already!")
-        health_to_heal = int(user.MaxHP * 0.1 + (random.randrange(10, 15) * mind_multiple))
+        health_to_heal = int(user.MaxHP * 0.1 + user.get_mind())
         if (health_to_heal + user.HP) > user.MaxHP:
             health_to_heal = user.MaxHP - user.HP
         gamestate.print_with_conf(f"{user.Name} heals {health_to_heal} HP!")
@@ -789,7 +795,7 @@ def heal(user, turn_order):
     gamestate.print_with_conf(f"{user.Name} focuses on calming things...")
     gamestate.print_with_conf("They siphon 6 MP!")
     gamestate.print_with_conf(f"{user.Name} casts Heal!")
-    HP_to_heal = int(user.MaxHP * 0.2) + int(user.get_mind() * 1.5)
+    HP_to_heal = int(user.MaxHP * 0.2) + user.get_mind()
     HP_to_heal = pc_to_heal.MaxHP - pc_to_heal.HP if pc_to_heal.HP + HP_to_heal > pc_to_heal.MaxHP else HP_to_heal
     gamestate.print_with_conf(f"They heal {pc_to_heal.Name} for {HP_to_heal} HP!")
     pc_to_heal.HP += HP_to_heal

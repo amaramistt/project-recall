@@ -5,7 +5,7 @@ import gamestate
 import uuid
 from gamestate import GAME_STATE, print_with_conf
 
-
+CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
 class Item(object):
     def __init__(self, template):
@@ -20,6 +20,7 @@ class Item(object):
             self.ItemSubtype = template["ItemSubtype"]
             self.ItemStats = template["ItemStats"]
             self.Equipped = False
+        self.ItemCost = 0
 
     @staticmethod
     def copy(other):
@@ -98,23 +99,6 @@ class Item(object):
             
 item_data = {
     1: { # Boss Drop Pool (standard item pool)
-        "SpikedArmor": Item({
-            "ItemName": "Spiked Armor",
-            "ItemDesc": "Plated armor with dangerous spikes protruding out everywhere. Hurts assailants that attempt to hit the wearer for physical damage.",
-            "ItemType": "equip",
-            "ItemSubtype": "armor",
-            "ItemQuality": 1,
-            "ItemTrigger": "callback_pc_is_hit", # KWARGS FORMAT: entity_hit, entity_attacker
-            "ItemCallback": "spiked_armor",
-            "ItemStats": {
-                "MaxHP": 0,
-                "MaxMP": 0,
-                "STR": 0,
-                "RES": 10,
-                "MND": 0,
-                "AGI": 0
-            },
-        }),
         "MedeasBlessing": Item({
             "ItemName": "Medea's Blessing",
             "ItemDesc": "Brooch with the Consecration of Medea carved into it. The wearer feels more mindful while wearing it and might cast a spell twice in a row.",
@@ -151,10 +135,59 @@ item_data = {
         }),
     },
     2: { # Item Room Pool (Higher than standard: Item rooms are not guaranteed)
-        
+
     },
     3: { # Ornaldo's Shop Pool (A little higher than standard: These cost money)
-        
+                "SpikedArmor": Item({
+            "ItemName": "Spiked Armor",
+            "ItemDesc": "Plated armor with dangerous spikes protruding out everywhere. Hurts assailants that attempt to hit the wearer for physical damage.",
+            "ItemType": "equip",
+            "ItemSubtype": "armor",
+            "ItemQuality": 1,
+            "ItemTrigger": "callback_pc_is_hit", # KWARGS FORMAT: entity_hit, entity_attacker
+            "ItemCallback": "spiked_armor",
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 0,
+                "RES": 10,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
+        "Pliabrand": Item({
+            "ItemName": "Pliabrand",
+            "ItemDesc": "A sword that has the potential to unravel into a whip. Paying some mana allows the wielder to attack every enemy on the field at once.",
+            "ItemType": "equip",
+            "ItemSubtype": "weapon",
+            "ItemQuality": 2,
+            "ItemTrigger": "", # KWARGS FORMAT: entity_hit, entity_attacker
+            "ItemCallback": "pliabrand",
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 20,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
+        "MedicinalHerbBag": Item({
+            "ItemName": "Medicinal Herb Bag",
+            "ItemDesc": "A bag containing enough medicine to heal wounds three times. Small and portable. Perfect for in-battle use.",
+            "ItemType": "active",
+            "ItemQuality": 1,
+            "ItemTrigger": "", # KWARGS FORMAT: entity_hit, entity_attacker
+            "ItemCallback": "medicinal_herb_bag",
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 0,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
     },
     4: { # Secret Shop Pool (Some of the best items in the game)
         
@@ -202,10 +235,13 @@ def present_player_boss_item(item_pool = 1):
 
 
 def get_clone_by_name(item_id):
+    got_it = False
     for item_pools in item_data.keys():
         if item_id in item_data[item_pools].keys():
             return Item.copy(item_data[item_pools][item_id])
-
+    if not got_it:
+        input("ItemError: get_clone_by_name could not find item with given item ID")
+        return Item.copy(item_data["no_equip"])
 
 def give_player_item(item):
     print_with_conf(f"You obtained a(n) {item.ItemName}!")
@@ -220,8 +256,59 @@ def give_player_item(item):
         GAME_STATE.bagged_items.append(item)
     item.obtained(pc)
 
+def shop():
+    os.system(CLEAR)
+    if GAME_STATE.player_bought_something:
+        print_with_conf("ORNALDO) Weren't you just here a second ago?")
+        print_with_conf("ORNALDO) Nothing's changed about my stock right now, Khorynn. Come back later.")
+        return
+    print_with_conf("ORNALDO) Welcome to my emporium, Khroynn! Why don't you have a look-see at my wonderful wares?")
+    items_available = []
+    amount_of_items_to_buy = random.randrange(1,3)
+    for item in range(amount_of_items_to_buy):
+        item_to_present = random.choice(list(item_data[3].keys()))
+        if item_to_present in items_available:
+            pass
+        else:
+            items_available.append(Item.copy(item_data[3][item_to_present]))
+    print("ORNALDO) Here's what I've got!")
+    numbered_item = 0
+    for item in items_available:
+        numbered_item += 1
+        min_cost = item.ItemQuality * 10
+        max_cost = item.ItemQuality * 20
+        item.ItemCost = random.randrange(min_cost, max_cost + 1)
+        print(f"{numbered_item}: {item.ItemName}, costs {item.ItemCost} gold")
+    print_with_conf("ORNALDO) Come on, these are wonderful deals! You couldn't get this quality anywhere else.\n")
+    player_chose_item = False
+    while not player_chose_item:
+        cmd = input("(INPUT) Which numbered item would you like to buy? Input 'back' to exit the shop.   ")
+        try:
+            cmd = int(cmd)
+            player_chose_item = True
+        except ValueError:
+            if cmd == "back":
+                print_with_conf("ORNALDO) Aww, nothing caught your eye? My stock's always changing, you know! Come back later~!")
+                GAME_STATE.player_bought_something = True
+                return
+            input("You inputted something other than a number! PLEASE only input a number!")
+            player_chose_item = False
 
-
+    cmd = 1 if cmd <= 0 else cmd
+    cmd = len(items_available) if cmd > len(items_available) else cmd
+    chosen_item = items_available[cmd - 1]
+    if GAME_STATE.money < chosen_item.ItemCost:
+        print_with_conf("ORNALDO) Oh, girl, you don't have enough money to buy that! Are you trying to con me?")
+    else:
+        conf = input(f"(INPUT Y/N) Are you sure you would like to buy the {chosen_item.ItemName} for {chosen_item.ItemCost} gold?")
+        if conf == "y":
+            GAME_STATE.money -= chosen_item.ItemCost
+            GAME_STATE.bagged_items.append(chosen_item)
+            print_with_conf(f"ORNALDO) Thank you for buying my {chosen_item.ItemName}!! Wonderful doing business with you as always, Khorynn.")
+            GAME_STATE.player_bought_something = True
+        else:
+            return
+    print_with_conf("ORNALDO) Come back when you have more money!")
 
 
 def spiked_armor(entity_hit, entity_attacker, damage_dealt):

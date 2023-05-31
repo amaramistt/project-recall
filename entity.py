@@ -24,7 +24,7 @@ jobs = {
     # !!! IN ORDER !!!
     
     "warrior": {
-        "stats": [4, 1, 4, 3, 1, 1],
+        "stats": [4, 1, 3, 3, 1, 1],
         "dependencies": [],
         "abilities": {
             10: "skullcrusher"
@@ -56,7 +56,7 @@ jobs = {
         "abilities": {}
     },
     "monk": {
-        "stats": [3, 1, 3, 3, 2, 3],
+        "stats": [3, 1, 4, 3, 2, 3],
         "abilities": {
             10: "focus",
         }
@@ -166,12 +166,12 @@ class Entity(object):
         self.RES = template["RES"]
         self.MND = template["MND"]
         self.AGI = template["AGI"]
-        self.MP = template["MP"]
-        self.HP = template["HP"]
+        self.MP = self.MaxMP
+        self.HP = self.MaxHP
         self.Abilities = template["Abilities"]
         if self.EntityType == "Enemy" or self.EntityType == "BossEnemy":
-            self.ExperienceReward = 0
-            self.MoneyReward = 0
+            self.EXP_Reward = template["EXP_Reward"]
+            self.Money_Reward = template["Money_Reward"]
         if self.EntityType == "BossEnemy":
             self.BossLogic = template["BossLogic"]
             self.Phases = template["Phases"]
@@ -243,8 +243,6 @@ entities = {
         "RES": 1,
         "MND": 1,
         "AGI": 1,
-        "HP": 1,
-        "MP": 1,
         "Abilities": {}
     }),
     "MEGAKHORYNN": Entity({
@@ -258,36 +256,34 @@ entities = {
         "RES": 10000,
         "MND": 10000,
         "AGI": 10000,
-        "HP": 10000,
-        "MP": 10000,
         "Abilities": {}
     }),
     "EnemyWizard": Entity({
         "Name": "Enraged Wizard",
         "EntityType": "Enemy",
         "Level": 1,
-        "MaxHP": 6,
+        "MaxHP": 12,
         "MaxMP": 12,
         "STR": 3,
         "RES": 7,
         "MND": 15,
         "AGI": 10,
-        "HP": 6,
-        "MP": 12,
+        "EXP_Reward": 1,
+        "Money_Reward": 15,
         "Abilities": {}
     }),
     "EnemyWarrior": Entity({
         "Name": "Stalwart Warrior",
         "EntityType": "Enemy",
         "Level": 1,
-        "MaxHP": 16,
+        "MaxHP": 32,
         "MaxMP": 2,
         "STR": 14,
         "RES": 12,
         "MND": 3,
         "AGI": 4,
-        "HP": 16,
-        "MP": 2,
+        "EXP_Reward": 1,
+        "Money_Reward": 15,
         "Abilities": {}
 
     }),
@@ -295,28 +291,28 @@ entities = {
         "Name": "Volukuma",
         "EntityType": "Enemy",
         "Level": 1,
-        "MaxHP": 10,
+        "MaxHP": 20,
         "MaxMP": 2,
         "STR": 15,
         "RES": 8,
         "MND": 1,
         "AGI": 12,
-        "HP": 10,
-        "MP": 2,
+        "EXP_Reward": 1,
+        "Money_Reward": 10,
         "Abilities": {}
     }),
     "Slime": Entity({
         "Name": "Slime",
         "EntityType": "Enemy",
         "Level": 1,
-        "MaxHP": 20,
+        "MaxHP": 40,
         "MaxMP": 0,
         "STR": 11,
         "RES": 10,
         "MND": 1,
         "AGI": 6,
-        "HP": 20,
-        "MP": 0,
+        "EXP_Reward": 1,
+        "Money_Reward": 5,
         "Abilities": {}
     }),
     
@@ -324,84 +320,84 @@ entities = {
         "Name": "Enraged Warrior",
         "EntityType": "Enemy",
         "Level": 10,
-        "MaxHP": 180,
+        "MaxHP": 360,
         "MaxMP": 20,
         "STR": 105,
         "RES": 100,
         "MND": 30,
         "AGI": 30,
-        "HP": 110,
-        "MP": 20,
+        "EXP_Reward": 1,
+        "Money_Reward": 20,        
         "Abilities": {}
     }),
     "StalwartWizard": Entity({
         "Name": "Stalwart Wizard",
         "EntityType": "Enemy",
         "Level": 10,
-        "MaxHP": 100,
+        "MaxHP": 200,
         "MaxMP": 79,
         "STR": 30,
         "RES": 30,
         "MND": 80,
         "AGI": 70,
-        "HP": 70,
-        "MP": 79,
+        "EXP_Reward": 1,
+        "Money_Reward": 20,        
         "Abilities": {}
     }),
     "DisgracedMonk": Entity({
         "Name": "Disgraced Monk",
         "EntityType": "Enemy",
         "Level": 20,
-        "MaxHP": 250,
+        "MaxHP": 500,
         "MaxMP": 100,
         "STR": 150,
         "RES": 110,
         "MND": 110,
         "AGI": 150,
-        "HP": 180,
-        "MP": 100,
+        "EXP_Reward": 1,
+        "Money_Reward": 15,        
         "Abilities": {}
     }),
     "SorcererSupreme": Entity({
         "Name": "Sorcerer Supreme",
         "EntityType": "Enemy",
         "Level": 20,
-        "MaxHP": 150,
+        "MaxHP": 300,
         "MaxMP": 200,
         "STR": 30,
         "RES": 110,
         "MND": 200,
         "AGI": 140,
-        "HP": 130,
-        "MP": 200,
+        "EXP_Reward": 1,
+        "Money_Reward": 20,        
         "Abilities": {}        
     }),
     "CraftyThief": Entity({
         "Name": "Crafty Thief",
         "EntityType": "Enemy",
         "Level": 20,
-        "MaxHP": 230,
+        "MaxHP": 460,
         "MaxMP": 80,
         "STR": 165,
         "RES": 80,
         "MND": 100,
         "AGI": 200,
-        "HP": 170,
-        "MP": 80,
+        "EXP_Reward": 1,
+        "Money_Reward": 50,        
         "Abilities": {}        
     }),
     "GelatinousKing": Entity({
         "Name": "Gelatinous King",
         "EntityType": "BossEnemy",
         "Level": 30,
-        "MaxHP": 4000,
+        "MaxHP": 6000,
         "MaxMP": 50,
         "STR": 270,
         "RES": 160,
         "MND": 100,
         "AGI": 210,
-        "HP": 4000,
-        "MP": 50,
+        "EXP_Reward": 1,
+        "Money_Reward": 100,        
         "BossLogic": "king_slime",
         "Phases": {
             "Spawn Phase 1": False,
@@ -415,28 +411,28 @@ entities = {
         "Name": "Gelatinous Servant",
         "EntityType": "Enemy",
         "Level": 30,
-        "MaxHP": 400,
+        "MaxHP": 800,
         "MaxMP": 30,
         "STR": 190,
         "RES": 90,
         "MND": 100,
         "AGI": 230,
-        "HP": 400,
-        "MP": 30,
+        "EXP_Reward": 1,
+        "Money_Reward": 0,        
         "Abilities": {}
     }),
     "StoneGolem": Entity({
         "Name": "Stone Golem",
         "EntityType": "BossEnemy",
         "Level": 30,
-        "MaxHP": 1500,
+        "MaxHP": 2500,
         "MaxMP": 0,
         "STR": 320,
         "RES": 210,
         "MND": 2,
         "AGI": 80,
-        "HP": 1500,
-        "MP": 0,
+        "EXP_Reward": 1,
+        "Money_Reward": 100,        
         "BossLogic": "stone_golem",
         "Phases": {
             "Phase 2": False
@@ -483,7 +479,7 @@ def gen_starting_stats(character: Entity, first_generation: bool = True):
     # However, their level is subtracted by 5
     global jobs, stats_order
     char_job = jobs[character.Job]
-    character.MaxHP = roll_stat(char_job["stats"][0], True)
+    character.MaxHP = roll_stat(char_job["stats"][0], True) * 2
     character.MaxMP = roll_stat(char_job["stats"][1], True)
     character.STR = roll_stat(char_job["stats"][2], True)
     character.RES = roll_stat(char_job["stats"][3], True)
@@ -513,7 +509,7 @@ def level_up(character: Entity, times_to_level: int = 1, invisible: bool = False
 
     for _ in range(times_to_level):
         character.Level += 1
-        character.MaxHP += roll_stat(char_job["stats"][0], False)
+        character.MaxHP += roll_stat(char_job["stats"][0], False) * 2
         character.MaxMP += roll_stat(char_job["stats"][1], False)
         character.STR += roll_stat(char_job["stats"][2], False)
         character.RES += roll_stat(char_job["stats"][3], False)
@@ -569,8 +565,6 @@ def generate_party_member(party_level, name=""):
         "RES": 1,
         "MND": 1,
         "AGI": 1,
-        "HP": 1,
-        "MP": 1,
         "Abilities": {}
     })
     # make it a variable so it is more readable

@@ -2,6 +2,7 @@ import os
 import sys
 import random
 import entity as ENTY
+import item as ITM
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
@@ -15,6 +16,8 @@ class GameState(object):
         self.bagged_items = []
         self.passives = []
         self.floor = 0
+        self.money = 0
+        self.xp_count = 0
         self.in_battle = False
         self.message_log = []
         self.debug_mode = False
@@ -65,9 +68,11 @@ def add_callback(trigger, callback):
     # Takes a given "stringified" callback and adds it to the value of a given trigger in callback_triggers
     # To add a callback that should happen every time some*thing* dies:
     # add_callback("callback_entity_is_dead", "something_died")
-    if trigger == "" or callback == "":
-        return
-    callback_triggers[trigger].append(callback)
+    # NOT WORKING. COMMENT HIM.
+    # if trigger == "" or callback == "":
+    #     return
+    # callback_triggers[trigger].append(callback)
+    pass
 
 def remove_callback(trigger, callback):
     if trigger == "" or callback == "":
@@ -106,7 +111,7 @@ def print_tutorial():
     print_with_conf("Priest: Squishy backliners that support their allies with healing and buffs. Keep them safe and they'll return the favor!", True)
     os.system(CLEAR)
     print("COMMANDS")
-    print_with_conf("When it is a player characters' turn in battle, you will be asked to print_with_conf a command.", True)
+    print_with_conf("When it is a player characters' turn in battle, you will be asked to input a command.", True)
     print_with_conf("A list of available commands will follow.", True)
     print_with_conf("Attack: Initiate a basic attack on a selected enemy.", True)
     print_with_conf("Ability: Initiates the process of using abilities. Most of them use MP!", True)
@@ -178,12 +183,13 @@ def title_screen():
 def rest_time():
     GAME_STATE.player_changed_jobs = False
     GAME_STATE.player_got_new_party_member = False
+    GAME_STATE.player_bought_something = False
     os.system(CLEAR)
     player_has_party = True
     if len(GAME_STATE.player_party) > 1:
         player_has_party = True
     # establish safe zone and max out party HP and MP
-    print_with_conf("After finishing the battle, feel exhausted and seek shelter.")
+    print_with_conf("After finishing the battle, you feel exhausted and seek shelter.")
     print_with_conf("As soon as you find a suitable area to rest, you start a campfire and sit down once your work is done.")
     if player_has_party:
         print_with_conf("Your party quickly follow your lead.")
@@ -197,11 +203,14 @@ def rest_time():
         os.system(CLEAR)
         
         print("The dying fire inspires thought... There are many things you could do to prepare for the dangers ahead.")
-        cmd = input("Will you visit Olivia's 'party' planning service?\nWould you rather take a look at your stats and manage your items in the 'menu'?\n(INPUT) Are you 'done' resting up?    ").lower().strip()
+        cmd = input("Will you visit Olivia's 'party' planning service?\nWould you rather take a look at your stats and manage your items in the 'menu'?\nDo you want to check out what Ornaldo has in his 'shop'?\n(INPUT) Or, are you 'done' resting up?    ").lower().strip()
         
         if cmd == "party":
             ENTY.party_place_handler()
-            
+
+        if cmd == "shop":
+            ITM.shop()
+
         if cmd == "menu":
             menu()
             
@@ -285,6 +294,8 @@ def stash_management_menu():
             input("THERE ARE NO ACTIVE ITEMS. HOW IS THIS PASSING. PLEASE STOP IT.")
             
     if cmd == "move":
+        if chosen_item in GAME_STATE.bagged_items:
+            input('ok so its in the stash')
         move_item_menu(chosen_item)
     elif cmd == "discard":
         cmd2 = input(f"(INPUT Y/N) Are you SURE you want to discard the {chosen_item.ItemName}?   ").strip().lower()
@@ -297,10 +308,13 @@ def stash_management_menu():
             stash_management_menu()
             return
 
-def move_item_menu(chosen_item, inventory = GAME_STATE.bagged_items):
-    if chosen_item.Equipped:
-        input("That item is currently equipped by someone! Unequip it first!")
-        return
+def move_item_menu(chosen_item, inventory = "bag"):
+    if inventory == "bag":
+        inventory = GAME_STATE.bagged_items
+    if chosen_item.ItemType == "equip":
+        if chosen_item.Equipped:
+            input("That item is currently equipped by someone! Unequip it first!")
+            return
     
     chars_to_print = []
     for pc in GAME_STATE.player_party:
@@ -341,7 +355,7 @@ def print_with_conf(message, from_menu: bool = False):
             menu()
         elif confirm == "log":
             os.system(CLEAR)
-            for each_message in GAME_STATE.message_log:
+            for each_message in reversed(GAME_STATE.message_log):
                 print(each_message)
             input()
             os.system(CLEAR)
@@ -396,16 +410,24 @@ def pc_management_menu(chosen_pc):
     print("\n\n")
     if chosen_item.ItemType == "active":
         print("Would you like to 'use' this item?")
-    if chosen_item.ItemType == "equip":
+    if chosen_item.ItemType == "equip" and chosen_pc.Job != "monk":
         print("Would you like to 'equip' this item?")
         
     cmd = input("Would you like to 'move' this item to a character's inventory?\nWould you like to 'discard' this item?\n(INPUT)   ").lower().strip()
     
     if chosen_item.ItemType == "equip":
         if cmd == "equip":
-            chosen_item.equip(chosen_pc)
-            pc_management_menu(chosen_pc)
-            return
+            if chosen_pc.Job != "monk":
+                chosen_item.equip(chosen_pc)
+                pc_management_menu(chosen_pc)
+                return
+            else:
+                if chosen_item.ItemSubtype == "weapon":
+                    input(f"{chosen_pc.Name} is a Monk! They can't equip weapons!")
+                    pc_management_menu(chosen_pc)
+                else:
+                    chosen_item.equip(chosen_pc)
+                    pc_management_menu(chosen_pc)
             
     if chosen_item.ItemType == "active":
         input("HOW????")
