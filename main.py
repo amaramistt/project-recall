@@ -42,8 +42,8 @@ def main():
         began = gamestate.title_screen()
     while began:
         if GAME_STATE.debug_mode:
-            GAME_STATE.money = 10000000
-            item.buy_thing_for_money()
+            item.give_player_item(item.get_clone_by_name("SpikedArmor"))
+            battle.initiate_battle(1)
             print_with_conf("balls")
         else:
             if run == 1:
@@ -111,7 +111,7 @@ def main():
                 began = False
                 break
                 
-            if run != 1:
+            else:
                 for guy in GAME_STATE.player_party:
                     entity.level_up(guy, 10)
                 gamestate.rest_time()

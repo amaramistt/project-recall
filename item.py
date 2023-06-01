@@ -14,12 +14,14 @@ class Item(object):
         self.ItemQuality = template["ItemQuality"]
         self.ItemCallback = template["ItemCallback"]
         self.ItemTrigger = template["ItemTrigger"]
+        self.ItemUseEffect = template["ItemUseEffect"]
         self.ItemName = template["ItemName"]
         self.ItemDesc = template["ItemDesc"]
         if self.ItemType == "equip" or self.ItemType == "none":
             self.ItemSubtype = template["ItemSubtype"]
             self.ItemStats = template["ItemStats"]
             self.Equipped = False
+        self.ItemUseCount = 0
         self.ItemCost = 0
 
     @staticmethod
@@ -32,7 +34,7 @@ class Item(object):
         if self.ItemType == "passive":
             gamestate.add_callback(self.ItemTrigger, self.ItemCallback)
             GAME_STATE.passives.append(self)
-
+        
         gamestate.run_callbacks("callback_item_pickup", entity_picking_up=character, item_picking_up=self)
 
 
@@ -93,6 +95,15 @@ class Item(object):
                 
         character.calc_equipment_stats()
 
+    def use(self):
+        self.ItemUseCount += 1
+        if self.ItemUseEffect is None:
+            input("This item does not have a use effect!")
+            return
+        else:
+            use_effect = self.ItemUseEffect
+            use_effect()
+
     def __repr__(self):
         return f"{self.ItemName}"
 
@@ -102,13 +113,45 @@ class Item(object):
 
 
 def spiked_armor(entity_hit, entity_attacker, damage_dealt):
-    pass
+    if entity_hit.EntityType != "PlayerCharacter" and entity_hit.EntityType != "Khorynn":
+        return
+    if entity_hit.EquippedArmor.ItemName == "Spiked Armor":
+        damage_to_deal = int(damage_dealt * 0.3)
+        gamestate.print_with_conf(f"{entity_hit.Name}'s Spiked Armor hurt their attacker for {damage_to_deal} damage!")
+        gamestate.deal_damage_to_target(entity_hit, entity_attacker, damage_dealt) 
 
 
-def medeas_blessing(entity_buffing_debuffing, stat_changed, change_stages):
-    pass
+def medeas_blessing(entity_casting, entity_targeted, spell_casted):  
+    blessing_is_equipped = False
+    for accessory in entity_casting.EquippedAccessories:
+        if accessory.ItemName == "Medea's Blessing":
+            blessing_is_equipped = True
+            break
+            
+    if blessing_is_equipped:
+        random_chance = random.uniform(0, 1)
+        if random_chance > 0.9:
+            input(f"The Medea's Blessing equipped by {entity_casting} glows! The spell repeats!")
+            spell_casted(entity_casting, True)
+            
+
+def medeas_curse():
+    pass # TODO: make something to help this work
 
 
+def pliabrand_target_override(entity_targeted, entity_attacking, attacker_action):
+    if entity_attacking.EquippedWeapon.ItemName == "Pliabrand":
+        entity_targeted = GAME_STATE.enemy_party
+
+    
+def pliabrand():
+    input("Pliabrand item use effect callback called!")
+
+
+def medicinal_herb_bag():
+    input("Medicinal Herb Bag item use effect callback called!")
+
+    
 ##########################
 #       ITEM DATA        #
 ##########################
@@ -123,6 +166,7 @@ item_data = {
             "ItemQuality": 2,        
             "ItemTrigger": "callback_spell_is_casted",
             "ItemCallback": medeas_blessing,
+            "ItemUseEffect": None,
             "ItemStats": {
                 "MaxHP": 0,
                 "MaxMP": 0,            
@@ -138,7 +182,8 @@ item_data = {
             "ItemType": "equip",
             "ItemSubtype": "accessory",
             "ItemQuality": 2,   
-            "ItemCallback": "medeas_curse",
+            "ItemCallback": medeas_curse,
+            "ItemUseEffect": None,
             "ItemTrigger": "callback_bloodthirsty_triggered",
             "ItemStats": {
                 "MaxHP": 0,
@@ -154,14 +199,15 @@ item_data = {
 
     },
     3: { # Ornaldo's Shop Pool (A little higher than standard: These cost money)
-                "SpikedArmor": Item({
+        "SpikedArmor": Item({
             "ItemName": "Spiked Armor",
             "ItemDesc": "Plated armor with dangerous spikes protruding out everywhere. Hurts assailants that attempt to hit the wearer for physical damage.",
             "ItemType": "equip",
             "ItemSubtype": "armor",
             "ItemQuality": 1,
             "ItemTrigger": "callback_pc_is_hit", # KWARGS FORMAT: entity_hit, entity_attacker
-            "ItemCallback": "spiked_armor",
+            "ItemCallback": spiked_armor,
+            "ItemUseEffect": None,
             "ItemStats": {
                 "MaxHP": 0,
                 "MaxMP": 0,
@@ -178,7 +224,8 @@ item_data = {
             "ItemSubtype": "weapon",
             "ItemQuality": 2,
             "ItemTrigger": "", # KWARGS FORMAT: entity_hit, entity_attacker
-            "ItemCallback": "pliabrand",
+            "ItemCallback": None,
+            "ItemUseEffect": pliabrand,
             "ItemStats": {
                 "MaxHP": 0,
                 "MaxMP": 0,
@@ -194,7 +241,8 @@ item_data = {
             "ItemType": "active",
             "ItemQuality": 1,
             "ItemTrigger": "", # KWARGS FORMAT: entity_hit, entity_attacker
-            "ItemCallback": "medicinal_herb_bag",
+            "ItemCallback": None,
+            "ItemUseEffect": medicinal_herb_bag,
             "ItemStats": {
                 "MaxHP": 0,
                 "MaxMP": 0,
@@ -225,6 +273,7 @@ item_data = {
         "ItemQuality": 0,   
         "ItemCallback": "",
         "ItemTrigger": "",
+        "ItemUseEffect": None,
         "ItemStats": {
             "MaxHP": 0,
             "MaxMP": 0,            

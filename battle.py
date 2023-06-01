@@ -60,17 +60,14 @@ enemy_pools = {
         ],
         
         "encounter_dialogue": [
-            "An army of slimes appear from all around and coagulate before you!\nYou face down the boss of the floor; the Gelatinous King!",
+            "An army of slimes appear from all around and merge into one before you!\nYou face down the boss of the floor; the Gelatinous King!",
             "A collection of boulders rise from the floor and take humanoid shape!\nYou face down the boss of the floor; the Stone Golem!"
         ]
     }
 }
 
 
-# \/\/ NEEDS REWORK \/\/
 def initiate_battle(enemy_pool = -9999):
-    #For now, I'm just going to have it call run_encounter similarly to how it would will in future
-    global entities
     os.system(CLEAR)
     enemies_spawned = []
 
@@ -93,21 +90,26 @@ def initiate_battle(enemy_pool = -9999):
         return False
 
 
-def find_target(amount_of_enemies):
-    target = input("Which numbered enemy would you like to target?")
+def find_target():
+    print("ENEMIES")
+    for _ in range(len(GAME_STATE.enemy_party)):
+        print(f"{_ + 1}: {GAME_STATE.enemy_party[_]}")
+    print()
+    target = input("(INPUT NUM) Which numbered enemy would you like to target?    ")
     while not isinstance(target, int):
         try:
             target = int(target)
         except ValueError:
-            print("Please print_with_conf a number correlated to the enemy.")
-            gamestate.print_with_conf("Don't print_with_conf anything other than a number!")
-            target = input("Which numbered enemy would you like to target?")
+            print("Please input a number correlated to the enemy.")
+            gamestate.print_with_conf("Don't input anything other than a number!")
+            target = input("(INPUT NUM) Which numbered enemy would you like to target?    ")
     target -= 1
     if target < 0:
         target = 0
     elif target > amount_of_enemies:
         target = amount_of_enemies - 1
     return target
+
 
 def find_turn_order():
     entity_list = []
@@ -117,17 +119,18 @@ def find_turn_order():
         entity_list.append(actors)
     return sorted(entity_list, key=lambda x: x.AGI, reverse=True)
 
+
 def run_encounter():
-    
+    GAME_STATE.in_battle = True
     initiative_list = find_turn_order()
-    os.system(CLEAR)
     party_wiped = False
     enemies_are_dead = False
     enemies_spawned = []
     for enemy in GAME_STATE.enemy_party:
         enemies_spawned.append(enemy)
     bloodthirsty_check = None
-
+    os.system(CLEAR)
+    
     # BATTLE STEPS:
     # 1) Turn order list is made
     # 2) Entity takes turn
@@ -169,6 +172,7 @@ def run_encounter():
                     os.system(CLEAR)
                 bloodthirsty_check = None
 
+            
             if actor.HP <= 0:
                 if actor in initiative_list:
                     initiative_list.remove(actor)
@@ -221,30 +225,26 @@ def pc_turn_handler(character, turn_order: list[Entity], is_bloodthirsty: bool =
         
         if cmd == "attack":
             # find the target of melee
-            target = None
-            while target is None:
-                try:
-                    target = GAME_STATE.enemy_party[find_target(len(GAME_STATE.enemy_party))]
-                except IndexError:
-                    gamestate.print_with_conf(f"That target doesn't exist! There are only {len(GAME_STATE.enemy_party)} enemies on the field!")
-                    target = None
+
             gamestate.run_callbacks("callback_entity_is_targeted", entity_targeted=target, entity_attacking=character, attacker_action="physical_attack")
-            gamestate.run_callbacks("callback_enemy_is_targeted", entity_targeted=target, entity_attacking=character, attacker_action="physical_attack")
+            target = gamestate.run_callbacks("callback_enemy_is_targeted", entity_targeted=target, entity_attacking=character, attacker_action="physical_attack")
+            if target is None:
+                target = GAME_STATE.enemy_party[find_target()]
+
             
             # deal damage to it
-            damage = damage_calc(character, target, False)
-            gamestate.print_with_conf(f"You attack {target.Name} with your weapon, dealing {damage} damage!")
-            target.HP -= damage
-            gamestate.run_callbacks("callback_entity_is_hit", entity_hit=target, entity_attacker=character)
-            gamestate.run_callbacks("callback_enemy_is_hit", entity_hit=target, entity_attacker=character)
+            if isinstance(target, list):
+                damage_falloff = 1
+                gamestate.print_with_conf(f"{character.Name} attacks with their weapon and hits all of the enemies!")
+                for victim in target:
+                    damage = int(damage_calc(character, victim, False) * damage_falloff)
+                    gamestate.print_with_conf(f"{victim.Name} takes {damage} damage!")
+                    bloodthirsty = gamestate.deal_damage_to_target(character, victim, damage)
+                    damage_falloff = damage_falloff - 0.1 if damage_falloff > 0.1 else 0.1
+            else:
+                damage = damage_calc(character, target, False)
+                gamestate.deal_damage_to_target(character, target, damage)
             
-            if target.HP <= 0:
-                gamestate.print_with_conf(f"{target.Name} has fallen!")
-                gamestate.run_callbacks("callback_entity_is_dead", entity_dead=target, entity_attacker=character)
-                gamestate.run_callbacks("callback_enemy_is_dead", entity_dead=target, entity_attacker=character)
-                GAME_STATE.enemy_party.remove(target)
-                bloodthirsty = character
-                
             turn_is_over = True
         
         elif cmd == "ability":
@@ -258,7 +258,9 @@ def pc_turn_handler(character, turn_order: list[Entity], is_bloodthirsty: bool =
             else:
                 gamestate.print_with_conf(f"{character.Name} waited to act!")
                 turn_is_over = True
-            
+
+        elif cmd == "item":
+            gamestate.print_with_conf("That's not a thing yet!")
         else:
             gamestate.print_with_conf("Invalid command!")
 
@@ -270,7 +272,6 @@ def ability_handler(character, turn_order: list[Entity]):
     bloodthirsty = None
     # check if you have an ability
     if len(character.Abilities) >= 1:
-        
         # print the abilities and let you choose one
         print("Your available abilities:", character.Abilities.keys())
         chosen_ability = input("Which ability do you choose?")
@@ -301,8 +302,6 @@ def ability_handler(character, turn_order: list[Entity]):
         return None
     return bloodthirsty
 
-
-###
 
 def check_if_battle_won():
     KhorynnCount = 0
@@ -340,21 +339,7 @@ def enemy_AI(enemy, turn_order):
         enemy_damage = damage_calc(enemy, enemy_target, True)
         gamestate.print_with_conf(f"The enemy casts a spell and deals {enemy_damage} damage to {enemy_target.Name}!")
         
-    # deal damage
-    enemy_target.HP -= enemy_damage
-    if enemy_target.HP < 0:
-        enemy_target.HP = 0
-    gamestate.run_callbacks("callback_entity_is_hit", entity_hit=enemy_target, entity_attacker=enemy)
-    gamestate.run_callbacks("callback_pc_is_hit", entity_hit=enemy_target, entity_attacker=enemy)
-    gamestate.print_with_conf(f"{enemy_target.Name} is at {enemy_target.HP}/{enemy_target.MaxHP} HP!")
-    
-    # check if the character died
-    if enemy_target.HP <= 0:
-        gamestate.print_with_conf(f"{enemy_target.Name} Has Fallen!")
-        gamestate.run_callbacks("callback_entity_is_dead", entity_dead=enemy_target, entity_attacker=enemy)
-        gamestate.run_callbacks("callback_pc_is_dead", entity_dead=enemy_target, entity_attacker=enemy)
-        bloodthirsty = enemy
-        GAME_STATE.player_party.remove(enemy_target)
+    bloodthirsty = gamestate.deal_damage_to_target(enemy, enemy_target, enemy_damage)
     return bloodthirsty
 
 
@@ -415,6 +400,7 @@ def battle_cleanup(enemies, won_battle = True):
             print(f"You defeated {actors.Name}!")
             xp_to_gain += actors.EXP_Reward
             money_to_gain += actors.Money_Reward
+        GAME_STATE.in_battle = False
         gamestate.print_with_conf(f"You earned {xp_to_gain} EXP and found {money_to_gain} gold!")
         for pc in GAME_STATE.player_party:
             pc.StatChanges["STR"] = 0
@@ -426,35 +412,6 @@ def battle_cleanup(enemies, won_battle = True):
     if won_battle == False:
         gamestate.print_with_conf("Khorynn's party wiped! You lose!")
     return won_battle
-
-def king_slime(gel_king, initiative_list, enemies_spawned):
-    bloodthirsty = None
-
-    if "king_slime_spawn_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
-        gamestate.add_callback("callback_enemy_is_hit", king_slime_spawn_phase_handler)
-    if "king_slime_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
-        gamestate.add_callback("callback_enemy_is_dead", "king_slime_death_logic")
-
-    enemy_target = None
-    for player_character in GAME_STATE.player_party:
-        if damage_calc(gel_king, player_character, False, False) > player_character.HP:
-            enemy_target = player_character
-            break
-    enemy_target = random.choice(GAME_STATE.player_party) if enemy_target == None else enemy_target
-    enemy_damage = damage_calc(gel_king, enemy_target, False)
-    gamestate.print_with_conf(f"The King jumps to {enemy_target.Name} and smothers them with its ginormous body, dealing {enemy_damage} damage!")
-    enemy_target.HP -= enemy_damage
-    # make sure the character doesn't have negative health
-    if enemy_target.HP < 0:
-        enemy_target.HP = 0
-    # let the player know what health they're at
-    gamestate.print_with_conf(f"{enemy_target.Name} is at {enemy_target.HP}/{enemy_target.MaxHP} HP!")
-    # check if the character died
-    if enemy_target.HP <= 0:
-        gamestate.print_with_conf(f"{enemy_target.Name} Has Fallen!")
-        bloodthirsty = gel_king
-        GAME_STATE.player_party.remove(enemy_target)
-    return bloodthirsty 
 
 
 def king_slime_spawn_phase_handler(entity_hit, entity_attacker):
@@ -520,92 +477,25 @@ def king_slime_death_logic(entity_dead, entity_attaker, cause_of_death):
         return
 
 
-def stone_golem(golem, initiative_list, enemies_spawned):
-    if "stone_golem_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
-        gamestate.add_callback("callback_enemy_is_hit", "stone_golem_phase_handler")
-    if "stone_golem_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
-        gamestate.add_callback("callback_enemy_is_dead", "stone_golem_death_logic")
+def king_slime(gel_king, initiative_list, enemies_spawned):
+    bloodthirsty = None
 
+    if "king_slime_spawn_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
+        gamestate.add_callback("callback_enemy_is_hit", king_slime_spawn_phase_handler)
+    if "king_slime_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
+        gamestate.add_callback("callback_enemy_is_dead", king_slime_death_logic)
 
-    cant_see_kill = True
+    enemy_target = None
     for player_character in GAME_STATE.player_party:
         if damage_calc(gel_king, player_character, False, False) > player_character.HP:
             enemy_target = player_character
-            cant_see_kill = False
             break
-    if cant_see_kill:
-        enemy_target = random.choice(GAME_STATE.player_party)
-        
-    enemy_damage = damage_calc(golem, enemy_target, False)
+    enemy_target = random.choice(GAME_STATE.player_party) if enemy_target == None else enemy_target
+    enemy_damage = damage_calc(gel_king, enemy_target, False)
+    gamestate.print_with_conf(f"The King jumps to {enemy_target.Name} and smothers them with its ginormous body, dealing {enemy_damage} damage!")
+    bloodthirsty = gamestate.deal_damage_to_target(gel_king, enemy_target, False)
+    return bloodthirsty 
 
-    def golem_normal_attack(phase):
-        nonlocal golem
-        nonlocal initiative_list
-        nonlocal enemies_spawned
-        nonlocal enemy_target
-        nonlocal enemy_damage
-
-        gamestate.run_callbacks("callback_entity_is_targeted")
-        gamestate.run_callbacks("callback_pc_is_targeted")
-        
-        if phase == 1:
-            gamestate.print_with_conf(f"The Golem slams its boulder fists down on {enemy_target.Name} and deals {enemy_damage}!")
-        else:
-            gamestate.print_with_conf(f"The Golem rushes towards {enemy_target.Name} with undiluted rage!\nIt runs them over and deals {enemy_damage} damage!!")
-            
-        enemy_target.HP -= enemy_damage
-        if enemy_target.HP < 0:
-            enemy_target.HP = 0
-            
-        gamestate.run_callbacks("callback_entity_is_hit", entity_hit=enemy_target, 
-                           entity_attacker=golem)
-        gamestate.run_callbacks("callback_pc_is_hit", entity_hit=enemy_target, 
-                           entity_attacker=golem)
-        
-        gamestate.print_with_conf(f"{enemy_target.Name} is at {enemy_target.HP}/{enemy_target.MaxHP} HP!")
-        # check if the character died
-        if enemy_target.HP <= 0:
-            gamestate.print_with_conf(f"{enemy_target.Name} Has Fallen!")
-            gamestate.run_callbacks("callback_entity_is_dead", entity_dead=enemy_target, entity_attacker=golem)
-            gamestate.run_callbacks("callback_pc_is_dead", entity_dead=enemy_target, entity_attacker=golem)
-            bloodthirsty = golem
-            GAME_STATE.player_party.remove(enemy_target)
-
-    
-    if not golem.Phases["Phase 2"]:
-        golem_normal_attack(1)
-
-    
-    elif golem.Phases["Phase 2"]:
-        if not cant_see_kill:
-            golem_normal_attack(2)
-
-        elif cant_see_kill:
-            move_selection = random.choice["normal_attack", "area_attack"]
-            if move_selection == "normal_attack":
-                golem_normal_attack(2)
-            elif move_selection == "area_attack":
-                gamestate.print_with_conf("The Golem swings in a wide arc that hits the enitre party!!!")
-                enemy_target = GAME_STATE.player_party
-                for pc in enemy_target:
-                    enemy_damage = int(damage_calc(golem, pc, False) * 0.6)
-                    gamestate.print_with_conf(f"{pc.Name} takes {enemy_damage} damage!")
-                    gamestate.run_callbacks("callback_entity_is_hit", entity_hit=pc, 
-                                   entity_attacker=golem)
-                    gamestate.run_callbacks("callback_pc_is_hit", entity_hit=pc, 
-                                       entity_attacker=golem)
-                    
-                    gamestate.print_with_conf(f"{pc.Name} is at {pc.HP}/{pc.MaxHP} HP!")
-                    # check if the character died
-                    if pc.HP <= 0:
-                        gamestate.print_with_conf(f"{pc.Name} Has Fallen!")
-                        gamestate.run_callbacks("callback_entity_is_dead", entity_dead=pc, entity_attacker=golem)
-                        gamestate.run_callbacks("callback_pc_is_dead", entity_dead=pc, entity_attacker=golem)
-                        bloodthirsty = golem
-                        GAME_STATE.player_party.remove(pc)
-
-        
-    return bloodthirsty
 
 def stone_golem_phase_handler(entity_hit, entity_attacker):
     if entity_hit.Name == "Stone Golem" and entity_hit.EntityType == "BossEnemy":
@@ -630,24 +520,89 @@ def stone_golem_death_logic(entity_dead, entity_attaker, cause_of_death):
     else:
         return
 
+def stone_golem(golem, initiative_list, enemies_spawned):
+    if "stone_golem_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
+        gamestate.add_callback("callback_enemy_is_hit", stone_golem_phase_handler)
+    if "stone_golem_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
+        gamestate.add_callback("callback_enemy_is_dead", stone_golem_death_logic)
+
+
+    cant_see_kill = True
+    for player_character in GAME_STATE.player_party:
+        if damage_calc(gel_king, player_character, False, False) > player_character.HP:
+            enemy_target = player_character
+            cant_see_kill = False
+            break
+    if cant_see_kill:
+        enemy_target = random.choice(GAME_STATE.player_party)
+
+
+    def golem_normal_attack(phase):
+        nonlocal golem
+        nonlocal initiative_list
+        nonlocal enemies_spawned
+        nonlocal enemy_target
+        nonlocal enemy_damage
+
+        gamestate.run_callbacks("callback_entity_is_targeted", entity_targeted=enemy_target, entity_attacking=golem, attacker_action="attack")
+        gamestate.run_callbacks("callback_pc_is_targeted", entity_targeted=enemy_target, entity_attacking=golem, attacker_action="attack")
+        
+        if phase == 1:
+            gamestate.print_with_conf(f"The Golem slams its boulder fists down on {enemy_target.Name} and deals {enemy_damage}!")
+        else:
+            gamestate.print_with_conf(f"The Golem rushes towards {enemy_target.Name} with undiluted rage!\nIt runs them over and deals {enemy_damage} damage!!")
+
+        
+        enemy_target.HP -= enemy_damage
+        bloodthirsty = gamestate.deal_damage_to_target(golem, enemy_target, enemy_damage)
+
+    
+    if not golem.Phases["Phase 2"]:
+        golem_normal_attack(1)
+
+    
+    elif golem.Phases["Phase 2"]:
+        if not cant_see_kill:
+            golem_normal_attack(2)
+
+        elif cant_see_kill:
+            move_selection = random.choice["normal_attack", "area_attack"]
+            if move_selection == "normal_attack":
+                golem_normal_attack(2)
+            elif move_selection == "area_attack":
+                gamestate.print_with_conf("The Golem swings in a wide arc that hits the enitre party!!!")
+                enemy_target = GAME_STATE.player_party
+                for pc in enemy_target:
+                    gamestate.run_callbacks("callback_entity_is_targeted", entity_targeted=pc, entity_attacking=golem, attacker_action="attack")
+                    gamestate.run_callbacks("callback_pc_is_targeted", entity_targeted=pc, entity_attacking=golem, attacker_action="attack")                    
+                    enemy_damage = int(damage_calc(golem, pc, False) * 0.6)
+                    gamestate.print_with_conf(f"{pc.Name} takes {enemy_damage} damage!")
+                    bloodthirsty = gamestate.deal_damage_to_target(golem, pc, enemy_damage)
+
+        
+    return bloodthirsty
+
+
+
 #####################################
 # \/\/\/ Ability Functions \/\/\/
 #####################################
 
-def skull_crusher(user, inititive_list):
+def skull_crusher(user, cast_for_free: bool = False):
     bloodthirsty = None
     
-    if user.MP < 3:
+    if user.MP < 3 and not cast_for_free:
         gamestate.print_with_conf(f"{user.Name} didn't have enough MP to use Skull Crusher!")
         return False
         
-    target = GAME_STATE.enemy_party[find_target(len(GAME_STATE.enemy_party))]
+    target = GAME_STATE.enemy_party[find_target()]
     gamestate.run_callbacks("callback_entity_is_targeted", entity_targeted=target, entity_attacking=user, attacker_action="physical_attack")
     gamestate.run_callbacks("callback_enemy_is_targeted", entity_targeted=target, entity_attacking=user, attacker_action="physical_attack")
     
     gamestate.print_with_conf(f"{user.Name} uses Skull Crusher!")
-    user.MP -= 3
-    gamestate.print_with_conf("They siphon 3 points of MP!")
+    if not cast_for_free:
+        user.MP -= 3
+        gamestate.print_with_conf("They siphon 3 points of MP!")
     gamestate.print_with_conf(f"{user.Name} slams their weapon onto {target.Name}'s head with a horrifying CRACK!")
     damage = int(damage_calc(user, target, False))
     gamestate.print_with_conf(f"They deal {damage} damage!")
@@ -665,16 +620,16 @@ def skull_crusher(user, inititive_list):
         gamestate.print_with_conf(f"{target.Name}'s resilience was lowered one stage!")
         target.change_stat("RES", -1)
         gamestate.run_callbacks("callback_stat_is_changed", entity_buffing_debuffing=target, stat_changed="RES", change_stages=-1)
-    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=target, spell_casted="skull_crusher")
+    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=target, spell_casted=skull_crusher)
     return bloodthirsty
 
 
-def forfireball(user, inititive_list):
+def forfireball(user):
     if user.MP < 40:
         gamestate.print_with_conf(f"{user.Name} tried to use Fireball, but its immense mana cost proved too much for them!")
         return False
     
-    defender = GAME_STATE.enemy_party[find_target(len(GAME_STATE.enemy_party))]
+    defender = GAME_STATE.enemy_party[find_target()]
     gamestate.run_callbacks("callback_entity_is_targeted", entity_targeted=defender, entity_attacking=user, attacker_action="magic_attack")
     gamestate.run_callbacks("callback_enemy_is_targeted", entity_targeted=defender, entity_attacking=user, attacker_action="magic_attack")
     user.MP -= 40
@@ -700,7 +655,7 @@ def forfireball(user, inititive_list):
     return None
 
 
-def focus(user, turn_order):
+def focus(user):
     mind_multiple = (user.get_mind() * 0.05) + 1
     if mind_multiple > 5:
         mind_multiple = 5
@@ -720,11 +675,11 @@ def focus(user, turn_order):
         user.HP += health_to_heal
         gamestate.print_with_conf("They gain a temporary boost to Mind!")
         user.change_stat("MND", 1)
-        gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=user, spell_casted="focus")
+        gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=user, spell_casted=focus)
         gamestate.run_callbacks("callback_stat_is_changed", entity_buffing_debuffing=user, stat_changed="MND", change_stages=1)
 
 
-def slap(user, turn_order):
+def slap(user):
     gamestate.print_with_conf(f"{user.Name} is panicking!")
     panic_thoughts = [
         f"{user.Name} thinks they left their refridgerator running!",
@@ -750,15 +705,15 @@ def slap(user, turn_order):
         return None
     gamestate.print_with_conf(f"{user.Name}'s mind settles!")
     user.change_stat("MND", 1)
-    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=user, spell_casted="slap")
+    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=user, spell_casted=slap)
     gamestate.run_callbacks("callback_stat_is_changed", entity_buffing_debuffing=user, stat_changed="MND", change_stages=1)    
     return None
 
-def spark(user, turn_order):
+def spark(user):
     if user.MP < 4:
         gamestate.print_with_conf(f"{user.Name} didn't have enough MP to use Spark!")
         return False
-    defender = GAME_STATE.enemy_party[find_target(len(GAME_STATE.enemy_party))]
+    defender = GAME_STATE.enemy_party[find_target()]
     gamestate.run_callbacks("callback_entity_is_targeted", entity_targeted=defender, entity_attacking=user, attacker_action="magic_attack")
     gamestate.run_callbacks("callback_enemy_is_targeted", entity_targeted=defender, entity_attacking=user, attacker_action="magic_attack")
     user.MP -= 4
@@ -777,10 +732,10 @@ def spark(user, turn_order):
         gamestate.run_callbacks("callback_enemy_is_dead", entity_dead=defender, entity_attacker=user)
         GAME_STATE.enemy_party.remove(defender)
         return user
-    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=defender, spell_casted="spark")
+    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=defender, spell_casted=spark)
     return None
     
-def heal(user, turn_order):
+def heal(user):
     if user.MP < 6:
         gamestate.print_with_conf(f"{user.Name} didn't have enough MP to use Heal!")
         return False
@@ -799,10 +754,10 @@ def heal(user, turn_order):
     HP_to_heal = pc_to_heal.MaxHP - pc_to_heal.HP if pc_to_heal.HP + HP_to_heal > pc_to_heal.MaxHP else HP_to_heal
     gamestate.print_with_conf(f"They heal {pc_to_heal.Name} for {HP_to_heal} HP!")
     pc_to_heal.HP += HP_to_heal
-    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=pc_to_heal, spell_casted="heal")
+    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=pc_to_heal, spell_casted=heal)
     return None
 
-def resilience_prayer(user, turn_order):
+def resilience_prayer(user):
     if user.MP < 20:
         gamestate.print_with_conf(f"{user.Name} didn't have enough MP to use Resilience Prayer!")
         return False
@@ -810,16 +765,16 @@ def resilience_prayer(user, turn_order):
     for pc in GAME_STATE.player_party:
         pc.change_stat("RES", 1)
     gamestate.print_with_conf("Everyone feels a little tougher! Party's resilience increases one stage!")
-    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=GAME_STATE.player_party, spell_casted="resilience_prayer")
+    gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=GAME_STATE.player_party, spell_casted=resilience_prayer)
     for pc in GAME_STATE.player_party:
         gamestate.run_callbacks("callback_stat_is_changed", entity_buffing_debuffing=pc, stat_changed="RES", change_stages=1)    
     return None
 
-def talk(user, turn_order):
+def talk(user):
     target_found = False
     
     while not target_found:
-        target = GAME_STATE.enemy_party[find_target(len(GAME_STATE.enemy_party))]
+        target = GAME_STATE.enemy_party[find_target()]
         target_found = True
         if target.EntityType == "BossEnemy":
             gamestate.print_with_conf("Something tells you that you can't calm that one down!")

@@ -23,6 +23,7 @@ class GameState(object):
         self.debug_mode = False
         self.player_changed_jobs = False
         self.player_got_new_party_member = False
+        self.player_bought_something = False
 
 
 GAME_STATE = GameState()
@@ -43,7 +44,8 @@ callback_trigger_args = {
     "callback_turn_phase_1": [],
     "callback_turn_phase_2": [],
     "callback_turn_phase_3": [],
-    "callback_item_pickup": ["entity_picking_up", "item_picking_up"]
+    "callback_item_pickup": ["entity_picking_up", "item_picking_up"],
+    "callback_item_being_used": ["item_being_used", "entity_using_item"]
 }
 
 callback_triggers = {
@@ -59,10 +61,10 @@ callback_triggers = {
     "callback_spell_is_casted": [],
     "callback_stat_is_changed": [],
     "callback_bloodthirsty_triggered": [],
-    "callback_turn_phase_1": [],
-    "callback_turn_phase_2": [],
-    "callback_turn_phase_3": [],
+    "callback_turn_phase_post_normal_turn": [],
+    "callback_turn_phase_post_bloodthirsty": [],
     "callback_item_pickup": [],
+    "callback_item_being_used": []
 }
 
 def get_callback_triggers_map():
@@ -71,6 +73,8 @@ def get_callback_triggers_map():
 def add_callback(trigger, callback):
     if trigger not in callback_triggers:
         raise ValueError(f"{trigger} is FAKE!!! not a real callback")
+    if callback == None:
+        return
     callback_triggers[trigger].append(callback)
 
 def remove_callback(trigger, callback):
@@ -245,6 +249,7 @@ def menu():
     print("\n")
 
     chosen_pc = None
+    
     cmd = input("(INPUT) Input a party member's name to see details about them.\nInput 'Stash' to operate on items in the Stash.\nInput anything else to go back.  ").strip().lower()
     
     for pc in GAME_STATE.player_party:
@@ -285,31 +290,40 @@ def stash_management_menu():
     if chosen_item.ItemType == "equip":
         print(f"Equipment Type: {chosen_item.ItemSubtype}")
     print("\n\n")
-    if chosen_item.ItemType == "active":
-        print("Would you like to 'use' this item?")
-        
-    cmd = input("Would you like to 'move' this item to a character's inventory?\nWould you like to 'discard' this item?\n(INPUT)   ").lower().strip()
     
-    if chosen_item.ItemType == "active":
+    if not GAME_STATE.in_battle:
+        print("Would you like to 'use' this item?")
+        cmd = input("Would you like to 'move' this item to a character's inventory?\nWould you like to 'discard' this item?\n(INPUT)   ").lower().strip()
+        
         if cmd == "use":
-            input("THERE ARE NO ACTIVE ITEMS. HOW IS THIS PASSING. PLEASE STOP IT.")
-            
-    if cmd == "move":
-        if chosen_item in GAME_STATE.bagged_items:
-            input('ok so its in the stash')
-        move_item_menu(chosen_item)
-    elif cmd == "discard":
-        cmd2 = input(f"(INPUT Y/N) Are you SURE you want to discard the {chosen_item.ItemName}?   ").strip().lower()
-        if cmd2 == "y":
-            input(f"You threw the {chosen_item.ItemName} away. It shatters instantly.")
-            GAME_STATE.bagged_items.remove(chosen_item)
+            chosen_item.use()
             menu()
             return
-        else:
-            stash_management_menu()
-            return
+                
+        if cmd == "move":
+            if chosen_item in GAME_STATE.bagged_items:
+                input('ok so its in the stash')
+            move_item_menu(chosen_item)
+            menu()
+        elif cmd == "discard":
+            cmd2 = input(f"(INPUT Y/N) Are you SURE you want to discard the {chosen_item.ItemName}?   ").strip().lower()
+            if cmd2 == "y":
+                input(f"You threw the {chosen_item.ItemName} away. It shatters instantly.")
+                GAME_STATE.bagged_items.remove(chosen_item)
+                menu()
+                return
+            else:
+                stash_management_menu()
+                return
+    else:
+        input("You're in a battle! You can't manage your items right now!")
+        menu()
+        return
 
 def move_item_menu(chosen_item, inventory = "bag"):
+    if GAME_STATE.inbattle:
+        input("You're in a battle! You can't manage your items right now!")
+        return
     if inventory == "bag":
         inventory = GAME_STATE.bagged_items
     if chosen_item.ItemType == "equip":
@@ -339,11 +353,9 @@ def move_item_menu(chosen_item, inventory = "bag"):
         input(f"{selected_pc.Name} takes the {chosen_item.ItemName} and puts it in their inventory!")
         inventory.remove(chosen_item)
         selected_pc.Items.append(chosen_item)
-        menu()
         return
         
     else:
-        menu()
         return    
 
 def print_with_conf(message, from_menu: bool = False):
@@ -380,6 +392,12 @@ def pc_management_menu(chosen_pc):
     for _ in range(len(chosen_pc.Items)):
         print(f"{_ + 1}: {chosen_pc.Items[_]}")
     print("\n\n")    
+
+    if GAME_STATE.in_battle:
+        input("You're in a battle! you can't manage your items right now!")
+        menu()
+        return
+    
     chosen_item = None
     cmd = input("(INPUT) Input an item number to see details about it and do some operations on it. Input anything else to go back.")
     try:
@@ -409,8 +427,7 @@ def pc_management_menu(chosen_pc):
             if chosen_item.id in [x.id for x in chosen_pc.EquippedAccessories]:
                 print(f"This is one of {chosen_pc.Name}'s equipped accessories.")
     print("\n\n")
-    if chosen_item.ItemType == "active":
-        print("Would you like to 'use' this item?")
+    print("Would you like to 'use' this item?")
     if chosen_item.ItemType == "equip" and chosen_pc.Job != "monk":
         print("Would you like to 'equip' this item?")
         
@@ -430,13 +447,15 @@ def pc_management_menu(chosen_pc):
                     chosen_item.equip(chosen_pc)
                     pc_management_menu(chosen_pc)
             
-    if chosen_item.ItemType == "active":
-        input("HOW????")
+    if cmd == "use":
+        chosen_item.use()
         pc_management_menu(chosen_pc)
         return
         
     if cmd == "move":
         move_item_menu(chosen_item, chosen_pc.Items)
+        pc_management_menu(chosen_pc)
+        return
     if cmd == "discard":
         if chosen_item.Equipped:
             input("This item is equipped! If you want to discard it, unequip it first.")
@@ -451,3 +470,27 @@ def pc_management_menu(chosen_pc):
     else:
         pc_management_menu(chosen_pc)
         return
+
+
+def deal_damage_to_target(attacker, target, damage):
+    bloodthirsty = None
+    target.HP -= damage
+    if target.HP < 0:
+        target.HP = 0
+
+    run_callbacks("callback_entity_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+    run_callbacks("callback_pc_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+    
+    if target.EntityType == "PlayerCharacter":
+        print_with_conf(f"{target.Name} is at {target.HP}/{target.MaxHP} HP!")
+    
+    if target.HP <= 0:
+        print_with_conf(f"{target.Name} Has Fallen!")
+        bloodthirsty = attacker
+        if target.EntityType == "PlayerCharacter" or target.EntityType == "Khorynn":
+            GAME_STATE.player_party.remove(target)
+        else:
+            GAME_STATE.enemy_party.remove(target)
+        run_callbacks("callback_entity_is_dead", entity_dead=target, entity_attacker=attacker)
+        run_callbacks("callback_pc_is_dead", entity_dead=target, entity_attacker=attacker)
+    return bloodthirsty
