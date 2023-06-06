@@ -8,7 +8,7 @@ CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
 class GameState(object):
     def __init__(self):
-      self.reset()
+        self.reset()
 
     def reset(self):
         self.player_party = []
@@ -19,6 +19,9 @@ class GameState(object):
         self.money = 0
         self.xp_count = 0
         self.in_battle = False
+        self.turn_order = []
+        self.battle_entity_targeted = None
+        self.battle_entity_attacking = None
         self.message_log = []
         self.debug_mode = False
         self.player_changed_jobs = False
@@ -35,9 +38,9 @@ callback_trigger_args = {
     "callback_entity_is_dead": ["entity_dead", "entity_attacker"],
     "callback_pc_is_dead": ["entity_dead", "entity_attacker"],
     "callback_enemy_is_dead": ["entity_dead", "entity_attacker"],
-    "callback_entity_is_targeted": ["entity_targeted", "entity_attacking", "attacker_action"],
-    "callback_pc_is_targeted": ["entity_targeted", "entity_attacking", "attacker_action"],
-    "callback_enemy_is_targeted": ["entity_targeted", "entity_attacking", "attacker_action"],
+    "callback_entity_is_targeted": ["attacker_action"],
+    "callback_pc_is_targeted": ["attacker_action"],
+    "callback_enemy_is_targeted": ["attacker_action"],
     "callback_spell_is_casted": ["entity_casting", "entity_targeted", "spell_casted"],
     "callback_stat_is_changed": ["entity_buffing_debuffing", "stat_changed", "change_stages"],
     "callback_bloodthirsty_triggered": ["entity_bloodthirsty"],
@@ -64,17 +67,18 @@ callback_triggers = {
     "callback_turn_phase_post_normal_turn": [],
     "callback_turn_phase_post_bloodthirsty": [],
     "callback_item_pickup": [],
-    "callback_item_being_used": []
+    "callback_item_being_used": [],
+    "callback_turn_timer": []
 }
 
 def get_callback_triggers_map():
     return callback_triggers
     
 def add_callback(trigger, callback):
-    if trigger not in callback_triggers:
-        raise ValueError(f"{trigger} is FAKE!!! not a real callback")
     if callback == None:
         return
+    if trigger not in callback_triggers:
+        raise ValueError(f"{trigger} is FAKE!!! not a real callback")
     callback_triggers[trigger].append(callback)
 
 def remove_callback(trigger, callback):
@@ -240,8 +244,8 @@ def load_cutscene(cutscene_ID):
 def menu():
     os.system(CLEAR)
     print("PARTY\n")
-    for pc in GAME_STATE.player_party:
-        print(pc.Name)
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party member {_ + 1}: {pc.Name}")
     print("\n")
     print(f"Gold: {GAME_STATE.money}")
     print(f"Items in the Stash: {GAME_STATE.bagged_items}")
@@ -250,18 +254,21 @@ def menu():
 
     chosen_pc = None
     
-    cmd = input("(INPUT) Input a party member's name to see details about them.\nInput 'Stash' to operate on items in the Stash.\nInput anything else to go back.  ").strip().lower()
+    cmd = input("(INPUT) Input a party member's number to see details about them.\nInput 'Stash' to operate on items in the Stash.\nInput anything else to go back.  ").strip().lower()
     
-    for pc in GAME_STATE.player_party:
-        if cmd == pc.Name.lower():
-            chosen_pc = pc
+
     if cmd == "stash":
         stash_management_menu()
-    if chosen_pc is None:
+        
+    try:
+        cmd = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
+        cmd = len(GAME_STATE.player_party) - 1 if cmd >= len(player_party) else cmd
+        selected_pc = GAME_STATE.player_party[cmd]
+    except ValueError:
         os.system(CLEAR)
         return
-    else:
-        pc_management_menu(chosen_pc)
+
+    pc_management_menu(selected_pc)
 
 
 def stash_management_menu():

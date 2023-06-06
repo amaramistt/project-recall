@@ -17,24 +17,32 @@ class Item(object):
         self.ItemUseEffect = template["ItemUseEffect"]
         self.ItemName = template["ItemName"]
         self.ItemDesc = template["ItemDesc"]
+        self.Activated = False
+        self.ItemHolder = None
         if self.ItemType == "equip" or self.ItemType == "none":
             self.ItemSubtype = template["ItemSubtype"]
             self.ItemStats = template["ItemStats"]
             self.Equipped = False
+            self.CharacterEquipped = None
         self.ItemUseCount = 0
         self.ItemCost = 0
 
+    
     @staticmethod
     def copy(other):
         clone = copy.deepcopy(other)
         clone.id = uuid.uuid4()
         return clone
 
-    def obtained(self, character):
+    
+    def obtained(self, character = "stash"):
+        if character == "stash":
+            character = GAME_STATE.bagged_items
         if self.ItemType == "passive":
             gamestate.add_callback(self.ItemTrigger, self.ItemCallback)
             GAME_STATE.passives.append(self)
-        
+            
+        self.ItemHolder = character
         gamestate.run_callbacks("callback_item_pickup", entity_picking_up=character, item_picking_up=self)
 
 
@@ -49,13 +57,16 @@ class Item(object):
                 if character.EquippedWeapon.id == self.id:
                     character.EquippedWeapon = item_data["no_equip"]
                     self.Equipped = False
+                    self.CharacterEquipped = None
                 if character.EquippedArmor.id == self.id:
                     character.EquippedArmor = item_data["no_equip"]
                     self.Equipped = False
+                    self.CharacterEquipped = None
                 for accessory in range(len(character.EquippedAccessories)):
                     if character.EquippedAccessories[accessory].id == self.id:
                         character.EquippedAccessories[accessory] = item_data["no_equip"]
                         self.Equipped = False
+                        self.CharacterEquipped = None
                         break 
             character.calc_equipment_stats()
             return
@@ -65,50 +76,60 @@ class Item(object):
             if self.ItemSubtype == "weapon":
                 if character.EquippedWeapon.ItemType is not "none":
                     gamestate.remove_callback(character.EquippedWeapon.ItemTrigger, character.EquippedWeapon.ItemCallback)
-                    print_with_conf(f"{character.EquippedWeapon.ItemName} was unequipped!")   
+                    input(f"{character.EquippedWeapon.ItemName} was unequipped!")   
                     character.EquippedWeapon.Equipped = False
+                    character.EquippedWeapon.CharacterEquipped = None 
+                    
                 character.EquippedWeapon = self
                 self.Equipped = True
+                self.CharacterEquipped = character
                 gamestate.add_callback(character.EquippedWeapon.ItemTrigger, character.EquippedWeapon.ItemCallback)
-                print_with_conf(f"{character.Name} equipped {self.ItemName}!")
+                input(f"{character.Name} equipped {self.ItemName}!")
                 
             elif self.ItemSubtype == "armor":
                 if character.EquippedArmor.ItemType is not "none":
                     gamestate.remove_callback(character.EquippedArmor.ItemTrigger, character.EquippedArmor.ItemCallback)
-                    print_with_conf(f"{character.EquippedArmor.ItemName} was unequipped!")
+                    input(f"{character.EquippedArmor.ItemName} was unequipped!")
                     character.EquippedArmor.Equipped = False
+                    character.EquippedArmor.CharacterEquipped = None
+                    
                 character.EquippedArmor = self
-                self.Equipped = True                
+                self.Equipped = True               
+                self.CharacterEquipped = character
                 gamestate.add_callback(character.EquippedArmor.ItemTrigger, character.EquippedArmor.ItemCallback)
-                print_with_conf(f"{character.Name} equipped {self.ItemName}!")                
+                input(f"{character.Name} equipped {self.ItemName}!")                
                 
             elif self.ItemSubtype == "accessory":
                 if character.EquippedAccessories[1].ItemType is not "none":
                     gamestate.remove_callback(character.EquippedAccessories[1].ItemTrigger, character.EquippedAccessories[1].ItemCallback)
-                    print_with_conf(f"{character.EquippedAccessories[1].ItemName} was unequipped!")
-                    character.EquippedAccessories[1].Equipped = False                    
+                    input(f"{character.EquippedAccessories[1].ItemName} was unequipped!")
+                    character.EquippedAccessories[1].Equipped = False
+                    character.EquippedAccessories[1].CharacterEquipped = None
+                    
                 character.EquippedAccessories[1] = character.EquippedAccessories[0]
                 character.EquippedAccessories[0] = self
-                self.Equipped = True                
-                print_with_conf(f"{character.Name} equipped {self.ItemName}!")
+                self.Equipped = True
+                self.CharacterEquipped = character
+                input(f"{character.Name} equipped {self.ItemName}!")
                 gamestate.add_callback(character.EquippedAccessories[0].ItemTrigger, character.EquippedAccessories[0].ItemCallback)
                 
         character.calc_equipment_stats()
 
     def use(self):
-        self.ItemUseCount += 1
         if self.ItemUseEffect is None:
             input("This item does not have a use effect!")
             return
         else:
             use_effect = self.ItemUseEffect
-            use_effect()
+            if use_effect(self) == "dont_end_turn":
+                return "dont_end_turn"
+            self.ItemUseCount += 1
 
     def __repr__(self):
         return f"{self.ItemName}"
 
 ##########################
-#    ITEM CALLBACKS      #
+#     ITEM CALLBACKS     #
 ##########################
 
 
@@ -123,10 +144,11 @@ def spiked_armor(entity_hit, entity_attacker, damage_dealt):
 
 def medeas_blessing(entity_casting, entity_targeted, spell_casted):  
     blessing_is_equipped = False
-    for accessory in entity_casting.EquippedAccessories:
-        if accessory.ItemName == "Medea's Blessing":
-            blessing_is_equipped = True
-            break
+    if entity_casting.EntityType == "Player_Character" or entity_casting.EntityType == "Khorynn":
+        for accessory in entity_casting.EquippedAccessories:
+            if accessory.ItemName == "Medea's Blessing":
+                blessing_is_equipped = True
+                break
             
     if blessing_is_equipped:
         random_chance = random.uniform(0, 1)
@@ -139,17 +161,64 @@ def medeas_curse():
     pass # TODO: make something to help this work
 
 
-def pliabrand_target_override(entity_targeted, entity_attacking, attacker_action):
-    if entity_attacking.EquippedWeapon.ItemName == "Pliabrand":
-        entity_targeted = GAME_STATE.enemy_party
+def pliabrand_target_override(attacker_action):
+    if GAME_STATE.battle_entity_attacking.EquippedWeapon.ItemName == "Pliabrand":
+        GAME_STATE.battle_entity_targeted = GAME_STATE.enemy_party
 
     
-def pliabrand():
-    input("Pliabrand item use effect callback called!")
+def pliabrand(item):
+    if GAME_STATE.in_battle != True:
+        input("This item can only be used in battle!")
+        return "dont_end_turn"
+        
+    try:
+        if item.ItemHolder.EquippedWeapon != item:
+            input("This item must be equipped to a character to be used!")
+            return "dont_end_turn"
+    except AttributeError:
+        input("This item must be equipped to a character to be used!")
+        return "dont_end_turn"
+
+    char = item.CharacterEquipped
+    mp_to_spend = int(char.MaxMP * 0.1)
+    cmd = input(f"Do you want to spend 10% of {char.Name}'s max mana ({mp_to_spend} MP) to activate the Pliabrand?\n(INPUT Y/N) They will hit every enemy with their physical attacks for the rest of the battle!   ").lower().strip()
+    if cmd == "y":
+        if char.MP >= mp_to_spend:
+            char.MP - mp_to_spend
+            input(f"{char.Name} spends {mp_to_spend} MP and activates their Pliabrand!")
+            input("The blade unravels, coiling up on the ground by their side! The Pliabrand becomes a whip!")
+            gamestate.add_callback("callback_enemy_is_targeted", pliabrand_target_override)
+    else:
+        return "dont_end_turn"
+    
 
 
-def medicinal_herb_bag():
-    input("Medicinal Herb Bag item use effect callback called!")
+def medicinal_herb_bag(item):
+    print("PARTY\n")
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party Member {_ + 1}: {GAME_STATE.player_party[_].Name} (HP: {GAME_STATE.player_party[_].HP}/{GAME_STATE.player_party[_].MaxHP})")
+    print("\n\n")
+    
+    cmd = input(f"Input the numbered party member you would like to heal. For example, '1' is {GAME_STATE.player_party[0].Name}.\n(INPUT NUM) Input anything else to go back.").strip().lower()
+    try:
+        target = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
+        if target > len(GAME_STATE.player_party) - 1:
+            target = len(GAME_STATE.player_party) - 1
+        target_pc = GAME_STATE.player_party[target]
+    except ValueError:
+        return "dont_end_turn"
+
+    input(f"{target_pc.Name} is healed to full, using one of the Medicinal Herb Bag's three pouches!")
+    target_pc.HP = target_pc.MaxHP
+
+    if item.ItemUseCount >= 2:
+        input("That was the last of the pouches! You throw away the now empty bag!")
+        try:
+            item.ItemHolder.Items.remove(item)
+        except AttributeError:
+            item.ItemHolder.remove(item)
+    return
+            
 
     
 ##########################
@@ -239,7 +308,7 @@ item_data = {
             "ItemName": "Medicinal Herb Bag",
             "ItemDesc": "A bag containing enough medicine to heal wounds three times. Small and portable. Perfect for in-battle use.",
             "ItemType": "active",
-            "ItemQuality": 1,
+            "ItemQuality": 2,
             "ItemTrigger": "", # KWARGS FORMAT: entity_hit, entity_attacker
             "ItemCallback": None,
             "ItemUseEffect": medicinal_herb_bag,
@@ -252,9 +321,43 @@ item_data = {
                 "AGI": 0
             },
         }),
+        "BerserkerGarb": Item({
+            "ItemName": "Berserker's Garb",
+            "ItemDesc": "Toga-esque clothing that does not protect its wearer from danger very well. Wearing it increases your strength.",
+            "ItemType": "equip",
+            "ItemSubtype": "armor",
+            "ItemQuality": 2,
+            "ItemTrigger": None,
+            "ItemCallback": None,
+            "ItemUseEffect": None,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 20,
+                "RES": 5,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
     },
-    4: { # Secret Shop Pool (Some of the best items in the game)
-        
+    4: { # Secret Shop Pool (only quality 4)
+        "JulietsPoison": Item({
+            "ItemName": "Juliet's Poison",
+            "ItemDesc": "A complicated piece of contraband that begins a new Loop while keeping your possessions and strength.\nTakes preparation. Can't be used in battle.",
+            "ItemType": "active",
+            "ItemQuality": 4,
+            "ItemTrigger": None
+            "ItemCallback": None,
+            "ItemUseEffect": None,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 0,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),        
     },
     5: { # Other: Fill later
         
@@ -315,11 +418,12 @@ def give_player_item(item):
         if len(pc.Items) < 8 and not item_obtained:
             print_with_conf(f"{pc.Name} puts it in their inventory.")
             pc.Items.append(item)
+            item.obtained(pc)
             item_obtained = True
     if not item_obtained:
         print_with_conf("Khorynn puts it in the Stash.")
         GAME_STATE.bagged_items.append(item)
-    item.obtained(pc)
+        item.obtained()
 
 def shop():
     os.system(CLEAR)

@@ -1,4 +1,5 @@
 import os
+import uuid
 import random
 import copy
 import item
@@ -32,6 +33,7 @@ jobs = {
     },
     "just a guy": {
         "stats": [3, 1, 1, 2, 1, 3],
+        "dependencies": [],
         "abilities": {
             1: "talk",
             10: "slap"
@@ -39,6 +41,7 @@ jobs = {
     },
     "mage": {
         "stats": [2, 3, 1, 2, 4, 3],
+        "dependencies": [],
         "abilities": {
             1: "spark",
             10: "fireball"
@@ -46,6 +49,7 @@ jobs = {
     },
     "priest": {
         "stats": [3, 2, 2, 2, 2, 2],
+        "dependencies": [],
         "abilities": {
             5: "heal",
             10: "resilienceprayer"
@@ -53,32 +57,71 @@ jobs = {
     },
     "thief": {
         "stats": [3, 1, 3, 2, 1, 4],
+        "dependencies": [],
         "abilities": {}
     },
     "monk": {
         "stats": [3, 1, 4, 3, 2, 3],
+        "dependencies": [],
         "abilities": {
             10: "focus",
         }
-    }
+    },
+    # Tier Two Jobs: Can't implement yet, just here for documentation's sake
+    #
+    # "spellblade": {
+    #     "stats": [4,3,3,3,4,3],
+    #     "dependencies": ["warrior", "mage"],
+    #     "abilities": {}
+    # },
+    # "battle medic": {
+    #     "stats": [],
+    #     "dependencies": ["warrior", "priest"],
+    #     "abilities": {}        
+    # },
+    # "assassin": {
+    #     "stats": [],
+    #     "dependencies": ["warrior", "thief"],
+    #     "abilities": {}        
+    # },
+    # "tactician": {
+    #     "stats": [],
+    #     "dependencies": ["warrior", "monk"],
+    #     "abilities": {}        
+    # },
+    # "sage": {
+    #     "stats": [],
+    #     "dependencies": ["mage", "priest"],
+    #     "abilities": {}        
+    # },
+    # "trickster": {
+    #     "stats": ["mage", "thief"],
+    #     "dependencies": [],
+    #     "abilities": {}        
+    # },
+    # "warlock": {
+    #     "stats": [],
+    #     "dependencies": ["mage", "monk"],
+    #     "abilities": {}        
+    # },
+    # "first responder": {
+    #     "stats": [],
+    #     "dependencies": ["priest", "thief"],
+    #     "abilities": {}        
+    # },
+    # "reverend": {
+    #     "stats": [],
+    #     "dependencies": ["priest", "monk"],
+    #     "abilities": {}        
+    # },
+    # "boxer": {
+    #     "stats": [],
+    #     "dependencies": ["thief", "monk"],
+    #     "abilities": {}        
+    # }
 }
 
 abilities = {
-
-    # Ability Template
-
-    # LevelLearned: Level that the class should learn the ability
-    # NAME: Used to name the ability in the abilities dict inside an entity's stat sheet
-    # ABILITYFUNC: Name of the function's ability. Case sensitive. Must be exact same as the function.
-    # ABILITYTYPE: If it's NOT_OFFENSIVE, it can target things other than just enemies and must handle *everything*
-    # in its function
-    #             Meaning it has to deal damage if it deals damage and also check for death
-    
-    # LevelLearned:{"NAME": "AbilityName",
-    # "AbilityName": {
-    # "ABILITYFUNC": "name",
-    # "ABILITYTYPE": "OFFENSIVE/NOT_OFFENSIVE"
-    # }}
     
     "focus": {
         "name": "Focus",
@@ -157,6 +200,7 @@ player_character_names = [
 
 class Entity(object):
     def __init__(self, template):
+        self.id = None
         self.Name = template["Name"]
         self.EntityType = template["EntityType"]
         self.Level = template["Level"]
@@ -184,6 +228,13 @@ class Entity(object):
             self.EquippedWeapon = item_data["no_equip"]
             self.EquippedArmor = item_data["no_equip"]
             self.EquippedAccessories = [item_data["no_equip"], item_data["no_equip"]]
+            self.JobMasteryBonus = {
+                "STR": 0,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            }
+            self.MasteredJobs = []
         self.StatChanges = {
             "STR": 0,
             "RES": 0,
@@ -199,22 +250,39 @@ class Entity(object):
             "AGI": 0
         }
 
+    @staticmethod
+    def copy(other):
+        clone = copy.deepcopy(other)
+        clone.id = uuid.uuid4()
+        return clone
+
+    
     def __repr__(self):
         # makes it so that whenever the class object itself is printed, it prints the below instead!
+        if self.EntityType == "Enemy" or self.EntityType == "BossEnemy":
+            
+            return f'Name: {self.Name}\nLevel: {self.Level}\n\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
+
+        
         return f'Name: {self.Name}\nLevel: {self.Level}\nJob: {self.Job}\n\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
 
+        
     def get_strength(self):
         return int(self.STR * stat_modifier_table[self.StatChanges["STR"]]) + self.EquipmentStats["STR"]
 
+        
     def get_res(self):
         return int(self.RES * stat_modifier_table[self.StatChanges["RES"]]) + self.EquipmentStats["RES"]
 
+    
     def get_mind(self):
         return int(self.MND * stat_modifier_table[self.StatChanges["MND"]]) + self.EquipmentStats["MND"]
 
+    
     def get_agi(self):
         return int(self.AGI * stat_modifier_table[self.StatChanges["AGI"]]) + self.EquipmentStats["AGI"]
 
+    
     def change_stat(self, stat_to_change, stages_to_increment):
         new_value = self.StatChanges[stat_to_change] + stages_to_increment
         new_value = new_value if new_value <= 2 else 2
@@ -223,6 +291,7 @@ class Entity(object):
 
         self.StatChanges[stat_to_change] = new_value    
 
+    
     def calc_equipment_stats(self):
         for stat in self.EquipmentStats.keys():
             self.EquipmentStats[stat] = 0
@@ -587,12 +656,12 @@ def present_player_party_members():
         print(f"Option 1\n{char_1}\n")
         char_2 = generate_party_member(party_level)
         print(f"Option 2\n{char_2}\n")
-        cmd = input("OLIVIA) Which one are you taking, Khorynn?\n(print_with_conf) Which number option do you choose to join your party?")
+        cmd = input("OLIVIA) Which one are you taking, Khorynn?\n(INPUT) Which number option do you choose to join your party?")
         while not isinstance(cmd, int):
             try:
                 cmd = int(cmd)
             except ValueError:
-                print_with_conf("You must print_with_conf a number!")
+                print_with_conf("You must input a number!")
                 cmd = input("(INPUT) Which number option do you choose to join your party?")
         if cmd == 1:
             print_with_conf(f"You chose {char_1.Name}! They join your party!")
@@ -621,24 +690,30 @@ def job_change_handler():
     os.system(CLEAR)
     selected_pc = None
     finished = False
-    while selected_pc is None:
-        print("Party:")
-        for pc in GAME_STATE.player_party:
-            print(pc.Name)
-        cmd = input("\nOLIVIA) Which one of you is looking to change your job?\n(print_with_conf) print_with_conf the party member you would like to change the job of.")
-        
-        for pc in GAME_STATE.player_party:
-            if cmd.lower().strip() == pc.Name.lower():
-                selected_pc = pc
-        if selected_pc is None:
-            print_with_conf(f"OLIVIA) {cmd}... Mmmm, nope, I don't see a {cmd} with you. Let's try that again.")
+    
+    os.system(CLEAR)
+    print("Party:\n")
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party Member {_ + 1}: {pc.Name}\nJob: {pc.Job}\n")
+
+    print("\n\n")
+    cmd = input("\nOLIVIA) Which one of you is looking to change your job?\nInput the numbered party member you would like to change the job of.\n(INPUT NUM) Input anything else to go back.    ")
+    
+    try:
+        cmd = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
+        cmd = len(GAME_STATE.player_party) - 1 if cmd >= len(player_party) else cmd
+        selected_pc = GAME_STATE.player_party[cmd]
+    except ValueError:
+        return "backed_out"
 
     print_with_conf(f"OLIVIA) {selected_pc.Name}... Mmm, that one.")
+    
     while not finished:
         print("OLIVIA) Here's a list of the jobs that one can take:")
         for job in jobs.keys():
             print(f"{job}, ", end = "")
-        cmd = input(f"\nOLIVIA) Which job is {selected_pc.Name} here gonna take, Khorynn?").lower().strip()
+            
+        cmd = input(f"\nOLIVIA) Which job is {selected_pc.Name} here gonna take, Khorynn?\n(INPUT JOB) Input anything else to go back.    ").lower().strip()
         if cmd in jobs.keys():
             selected_pc.Job = cmd
             print_with_conf(f"OLIVIA) Alright, come here, {selected_pc.Name}. Look deep into my eyes.")
@@ -651,7 +726,7 @@ def job_change_handler():
             gen_starting_stats(selected_pc, False)            
             finished = True
         else:
-            print_with_conf(f"OLIVIA) Love, that's not on the list. You've gotta pick a job on the list.")
+            return "backed_out"
     
 
 def party_place_handler():
@@ -666,8 +741,8 @@ def party_place_handler():
         
         if cmd == "party member":
             if not GAME_STATE.player_got_new_party_member:
-                present_player_party_members()
-                GAME_STATE.player_got_new_party_member = True
+                if present_player_party_members() != "backed_out":
+                    GAME_STATE.player_got_new_party_member = True
             else:
                 print_with_conf("OLIVIA) You already chose one of the two I gave you, Khorynn. There isn't anyone else to take.")
                 

@@ -2,14 +2,15 @@
 #
 #    \/ THINGS TO ACTUALLY WORK ON RIGHT NOW \/
 #
-# 1) Have enemies provide unique EXP and gold rewards that are provided after winning a battle
+# 1) Replace every instance of a local variable that refers to a target of an attack or an attacker with its GAME_STATE variant to make
+#    it eaier to modify in callbacks (i want to fucking die) 
+#
+#
 #
 #
 #    \/ DO AT SOME POINT LATER \/
-#    
-# 1) Implement Ornaldo's Shop
 #
-# 2) Rework the structure of the game: Have 4 encounters of the same pool and finish with a boss
+# 1) Rework the structure of the game: Have 4 encounters of the same pool and finish with a boss
 # 
 
 
@@ -42,7 +43,7 @@ def main():
         began = gamestate.title_screen()
     while began:
         if GAME_STATE.debug_mode:
-            item.give_player_item(item.get_clone_by_name("SpikedArmor"))
+            item.give_player_item(item.get_clone_by_name("MedicinalHerbBag"))
             battle.initiate_battle(1)
             print_with_conf("balls")
         else:
