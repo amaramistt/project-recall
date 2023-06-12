@@ -140,12 +140,12 @@ def begin_run_handler():
     os.system(CLEAR)
     if not GAME_STATE.debug_mode:
         # start with a selected job
-        print(f"Jobs available for selection: ", end="")
-        for job in ENTY.get_jobs_map().keys():
-            print(f"{job}, ", end = "")
+        print(f"Jobs available for selection:")
+        for job in ENTY.find_available_jobs():
+            print(f"{job}")
             #HOW DO I MAKE THIS GRAMMATICALLY CORRECT :((((((
         while True:
-            char_job = input("\nWhat job should Khorynn start with? ").strip().lower()
+            char_job = input("\n\nWhat job should Khorynn start with? ").strip().lower()
             if char_job in ENTY.get_jobs_map().keys():
                 Khorynn = ENTY.generate_khorynn(char_job)
                 GAME_STATE.player_party.append(Khorynn)
@@ -245,7 +245,7 @@ def menu():
     os.system(CLEAR)
     print("PARTY\n")
     for _ in range(len(GAME_STATE.player_party)):
-        print(f"Party member {_ + 1}: {pc.Name}")
+        print(f"Party member {_ + 1}: {GAME_STATE.player_party[_].Name}")
     print("\n")
     print(f"Gold: {GAME_STATE.money}")
     print(f"Items in the Stash: {GAME_STATE.bagged_items}")
@@ -259,15 +259,19 @@ def menu():
 
     if cmd == "stash":
         stash_management_menu()
-        
+
+    elif cmd == "debug":
+        if GAME_STATE.debug_mode:
+            debug_menu()
+    
     try:
         cmd = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
-        cmd = len(GAME_STATE.player_party) - 1 if cmd >= len(player_party) else cmd
+        cmd = len(GAME_STATE.player_party) - 1 if cmd >= len(GAME_STATE.player_party) else cmd
         selected_pc = GAME_STATE.player_party[cmd]
     except ValueError:
         os.system(CLEAR)
         return
-
+    
     pc_management_menu(selected_pc)
 
 
@@ -391,14 +395,22 @@ def print_with_conf(message, from_menu: bool = False):
 def pc_management_menu(chosen_pc):
     os.system(CLEAR)
     print(chosen_pc)
+    print(f"Job: {chosen_pc.Job}")
+    print(f"Job Experience: {chosen_pc.JEXP}")
+    print(f"Mastery Level: {chosen_pc.MasteryLevel}", end=" ")
+    if chosen_pc.MasteryLevel == 3:
+        print("<-- !! MASTERED !!")
+    else:
+        print()
+    print("\n")
     print(f"Weapon: {chosen_pc.EquippedWeapon}")
     print(f"Armor: {chosen_pc.EquippedArmor}")
     print(f"Accessory 1: {chosen_pc.EquippedAccessories[0]}")
-    print(f"Accessory 2: {chosen_pc.EquippedAccessories[1]}\n")
+    print(f"Accessory 2: {chosen_pc.EquippedAccessories[1]}\n\n")
     print("Items in their Inventory:")
     for _ in range(len(chosen_pc.Items)):
         print(f"{_ + 1}: {chosen_pc.Items[_]}")
-    print("\n\n")    
+    print("\n\n\n")    
 
     if GAME_STATE.in_battle:
         input("You're in a battle! you can't manage your items right now!")
@@ -478,6 +490,16 @@ def pc_management_menu(chosen_pc):
         pc_management_menu(chosen_pc)
         return
 
+def debug_menu():
+    if not GAME_STATE.debug_mode:
+        return
+    for pc in GAME_STATE.player_party:
+        print(f"{pc.Name}: ML{pc.MasteryLevel}")
+    print("\n")
+    cmd = int(input("input how much JEXP you want to give the first party member"))
+    GAME_STATE.player_party[0].JEXP += cmd
+    ENTY.check_for_mastery_level_up(GAME_STATE.player_party[0])
+    
 
 def deal_damage_to_target(attacker, target, damage):
     bloodthirsty = None

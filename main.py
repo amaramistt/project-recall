@@ -2,10 +2,16 @@
 #
 #    \/ THINGS TO ACTUALLY WORK ON RIGHT NOW \/
 #
-# 1) Replace every instance of a local variable that refers to a target of an attack or an attacker with its GAME_STATE variant to make
-#    it eaier to modify in callbacks (i want to fucking die) 
+# 1) >>> Create job mastery <<<
+#    Battles give job EXP, 1 for each enemy defeated. Get enough JEXP and you go up a Mastery Level; Get to Mastery Level 3 and the job is mastered. 
+#    Each Mastery Level has the character learn a new usable ability or passive ability, with the quality/importance of each ability increasing with each ML.
+#    After a job is mastered the job is put in the MasteredJobs attr of the character and a permanent stat bonus is applied
+#    When 2 specific jobs are mastered, a combination of the two becomes available to take at Olivia's,
+#    which is strictly better in every way in stats and abilities learned 
 #
+# 2) Finalize currently planned T2 jobs
 #
+# 3) Design and finalize more T2/3 jobs
 #
 #
 #    \/ DO AT SOME POINT LATER \/
@@ -37,17 +43,28 @@ def open_file(filename):
 
 def main():
     began = False
-    run = 1
+    cycle = 1
+    GAME_STATE.floor = 1
     
     while not began:
         began = gamestate.title_screen()
     while began:
         if GAME_STATE.debug_mode:
-            item.give_player_item(item.get_clone_by_name("MedicinalHerbBag"))
+            item.give_player_item(item.get_clone_by_name("SageForDummies"))
+            print_with_conf(f"{GAME_STATE.player_party[0].MasteredJobs}")
+            entity.party_place_handler()
             battle.initiate_battle(1)
-            print_with_conf("balls")
+            
         else:
-            if run == 1:
+            if cycle >= 5:
+                if not battle.initiate_battle(floor, True):
+                    began = False
+                    continue
+                GAME_STATE.floor += 1
+                cycle = 1
+                print_with_conf(f"Floor Increased to {GAME_STATE.floor}")
+                continue
+            if cycle == 1 and GAME_STATE.floor == 1:
                 os.system(CLEAR)
                 print_with_conf("Welcome to Project Recall!\nAt this moment, this game is mostly just a battle simulator.")
                 print_with_conf("You will be presented with mutliple encounters, getting new party members and levelling up between fights.")
@@ -69,12 +86,13 @@ def main():
                 print_with_conf("KHORYNN) ...Thanks, Olivia. I'll use your services as much as I can.")
                 print_with_conf("OLIVIA) Say, while you're here, why don't you sample my services? Let me give you my spiel...")
                 entity.party_place_handler()
-                if not battle.initiate_battle(run):
+                if not battle.initiate_battle(floor):
                     began = False
-                run += 1
+                    continue
+                cycle += 1
                 os.system(CLEAR)
                 
-            elif run == 2:
+            elif cycle == 2 and GAME_STATE.floor == 1:
                 for guy in GAME_STATE.player_party:
                     entity.level_up(guy, 9)
                 os.system(CLEAR)
@@ -102,24 +120,26 @@ def main():
                 print_with_conf("That interaction leaves you confused, but interested.")
                 print_with_conf("Whenever you have a break, it would be wise to check Ornaldo's shop.")
                 gamestate.rest_time()
-                if not battle.initiate_battle(run):
+                if not battle.initiate_battle(floor):
                     began = False
-                run += 1
+                cycle += 1
                     
-            elif run == 5:
+            elif GAME_STATE.floor == 2:
                 print_with_conf("Congratulations! You beat the game!")
                 print_with_conf("That's all I have for now. Thanks for playing!")
                 began = False
-                break
+                continue
                 
             else:
                 for guy in GAME_STATE.player_party:
                     entity.level_up(guy, 10)
                 gamestate.rest_time()
-                if not battle.initiate_battle(run):
+                if not battle.initiate_battle(floor):
                     began = False
-                if run <= 4:
-                    run += 1
+                    continue
+                if cycle <= 4:
+                    cycle += 1
+
     
     
 

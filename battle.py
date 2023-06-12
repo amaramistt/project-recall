@@ -19,7 +19,7 @@ CLEAR = 'cls' if os.name == 'nt' else 'clear'
 entities = entity.get_entity_map()
 
 enemy_pools = {
-    1: { # First encounter; balanced around level 1 party members
+    1: { # First floor encounters; balanced around early level party members
         "encounters": [
             [entities["EnemyWizard"], entities["EnemyWarrior"]],
             [entities["Volakuma"], entities["Volakuma"], entities["Volakuma"]],
@@ -40,7 +40,7 @@ enemy_pools = {
         ]
     },
     
-    2: { # Second encounter; balanced around level 10 party members
+    2: { # Second encounter; balanced around early-mid level party members
         "encounters": [
             [entities["EnragedWarrior"], entities["StalwartWizard"]]
         ],
@@ -50,7 +50,7 @@ enemy_pools = {
         ]
     },
     
-    3: { # Third encounter; balanced around level 20 party members
+    3: { # Third encounter; balanced around mid-late level party members
         "encounters": [
             [entities["DisgracedMonk"], entities["SorcererSupreme"], entities["CraftyThief"]]
         ],
@@ -60,7 +60,7 @@ enemy_pools = {
         ]
     },
     
-    4: { # Fourth encounter; boss monster balanced around level 30 party members
+    4: { # Fourth encounter; final boss monster balanced around endgame level party members
         "encounters": [
             [entities["GelatinousKing"]],
             [entities["StoneGolem"]]
@@ -74,33 +74,36 @@ enemy_pools = {
 }
 
 
-def initiate_battle(enemy_pool = None):
+def initiate_battle(enemy_pool = None, spawn_boss = False):
     os.system(CLEAR)
     enemies_spawned = []
 
-    # find appropriate encouters and choose one
-    possible_encounters = enemy_pools[enemy_pool]["encounters"]
-    chosen_encounter = random.randrange(0, len(possible_encounters))
-    
     gamestate.print_with_conf("The party encounters a group of enemies!")
 
     # Spawn 
     if enemy_pool is not None:
+        if not spawn_boss:
+            possible_encounters = enemy_pools[enemy_pool]["encounters"]
+        else:
+            possible_encounters = enemy_pools[enemy_pool]["boss_encounters"]            
+        chosen_encounter = random.randrange(0, len(possible_encounters))            
         for enemy in possible_encounters[chosen_encounter]:
             enemy_to_spawn = Entity.copy(enemy)
             enemies_spawned.append(enemy_to_spawn)
         gamestate.print_with_conf(enemy_pools[enemy_pool]["encounter_dialogue"][chosen_encounter])
         GAME_STATE.enemy_party = enemies_spawned
         return run_encounter()
+
     else:
         gamestate.print_with_conf("You didn't, actually, because THE DEV FORGOT TO SET THE ENEMY POOL LIKE A DUMBASS!")
         return False
 
 
 def pc_find_target():
+    amount_of_enemies = len(GAME_STATE.enemy_party)
     print("ENEMIES")
-    for _ in range(len(GAME_STATE.enemy_party)):
-        print(f"Enemy {_ + 1}: {GAME_STATE.enemy_party[_]}")
+    for _ in range(amount_of_enemies):
+        print(f"Enemy {_ + 1}: {GAME_STATE.enemy_party[_].Name}")
     print()
     target = input("(INPUT NUM) Which numbered enemy would you like to target?    ")
     while not isinstance(target, int):
@@ -266,8 +269,10 @@ def pc_turn_handler(character, is_bloodthirsty: bool = False):
                     bloodthirsty = gamestate.deal_damage_to_target(character, victim, damage)
                     damage_falloff = damage_falloff - 0.1 if damage_falloff > 0.1 else 0.1
             else:
+                gamestate.print_with_conf(f"{character.Name} attacks with their weapon and hits {GAME_STATE.battle_entity_targeted.Name}!")
                 damage = damage_calc(character, GAME_STATE.battle_entity_targeted, False)
-                gamestate.deal_damage_to_target(character, GAME_STATE.battle_entity_targeted, damage)
+                gamestate.print_with_conf(f"They deal {damage} damage!")
+                bloodthirsty = gamestate.deal_damage_to_target(character, GAME_STATE.battle_entity_targeted, damage)
             
             turn_is_over = True
         
@@ -463,21 +468,31 @@ def battle_cleanup(enemies, won_battle = True):
     os.system(CLEAR)
     xp_to_gain = 0
     money_to_gain = 0
+    jexp_to_gain = 0
     if won_battle == True:
         print("B A T T L E  W O N !")
         for actors in enemies:
             print(f"You defeated {actors.Name}!")
             xp_to_gain += actors.EXP_Reward
             money_to_gain += actors.Money_Reward
+            if actors.EntityType == "BossEnemy":
+                jexp_to_gain += 3
+            else:
+                jexp_to_gain += 1
         GAME_STATE.in_battle = False
         gamestate.print_with_conf(f"You earned {xp_to_gain} EXP and found {money_to_gain} gold!")
+        gamestate.print_with_conf(f"You earned {jexp_to_gain} Job EXP!")
         for pc in GAME_STATE.player_party:
             pc.StatChanges["STR"] = 0
             pc.StatChanges["RES"] = 0
             pc.StatChanges["MND"] = 0
             pc.StatChanges["AGI"] = 0
+            pc.JEXP += jexp_to_gain
+            pc.MasteredJobs[pc.Job]["JOB_EXP"] += jexp_to_gain
+            entity.check_for_mastery_level_up(pc)
         GAME_STATE.xp_count += xp_to_gain
         GAME_STATE.money += money_to_gain
+        
     if won_battle == False:
         gamestate.print_with_conf("Khorynn's party wiped! You lose!")
     return won_battle
@@ -805,14 +820,23 @@ def heal(user):
     if user.MP < 6:
         gamestate.print_with_conf(f"{user.Name} didn't have enough MP to use Heal!")
         return False
+
+    
     print("Party:")
-    for pc in GAME_STATE.player_party:
-        print(f"{pc.Name}")
-    pc_to_heal = input("(INPUT PLAYER CHARACTER NAME) Which party member would you like to heal?").lower().strip()
-    for character in GAME_STATE.player_party:
-        if character.Name.lower() == pc_to_heal:
-            pc_to_heal = character
-            break
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party Member {_ + 1}: {GAME_STATE.player_party[_].Name}\nHP: {GAME_STATE.player_party[_].HP}/{GAME_STATE.player_party[_].MaxHP}\n")
+    pc_to_heal = input("\n(INPUT NUM) Which numbered party member would you like to heal?    ").lower().strip()
+
+    
+    while not isinstance(pc_to_heal, int):
+        try:
+            pc_to_heal = int(pc_to_heal)
+        except ValueError:
+            print("Please input a number correlated to the target.")
+            gamestate.print_with_conf("Don't input anything other than a number!", True)
+            pc_to_heal = input("(INPUT NUM) Which numbered party member would you like to heal?    ")
+
+    
     gamestate.print_with_conf(f"{user.Name} focuses on calming things...")
     gamestate.print_with_conf("They siphon 6 MP!")
     gamestate.print_with_conf(f"{user.Name} casts Heal!")
@@ -822,6 +846,8 @@ def heal(user):
     pc_to_heal.HP += HP_to_heal
     gamestate.run_callbacks("callback_spell_is_casted", entity_casting=user, enitity_targeted=pc_to_heal, spell_casted=heal)
     return None
+
+
 
 def resilience_prayer(user):
     if user.MP < 20:
@@ -835,6 +861,33 @@ def resilience_prayer(user):
     for pc in GAME_STATE.player_party:
         gamestate.run_callbacks("callback_stat_is_changed", entity_buffing_debuffing=pc, stat_changed="RES", change_stages=1)    
     return None
+
+
+
+def steal(user):
+    # Find target
+    target = pc_find_target()
+    gamestate.print_with_conf(f"{user.Name} tries to steal from the enemy {target.Name}!")
+
+    # Steal success chance procedure:
+    # Get a random number between 0 and half of the user's AGI stat
+    # Find the difference between the user's AGI stat and the target's AGI stat
+    # If that random number is lower than the difference, you succeed and steal up to the entire money reward of the target!
+    random_chance = random.randrange(0, int(user.get_agi() * 0.2)) 
+    input(f"Steal threshold: {random_chance}")
+    if user.get_agi() - target.get_agi() < random_chance:
+        input(f"{user.get_agi()} - {target.get_agi()} ({user.get_agi() - target.get_agi()}) is lesser than threshold of {random_chance}: steal fails")
+        gamestate.print_with_conf(f"The enemy sees it coming and {user.Name} fails the steal!")
+    else:
+        input(f"{user.get_agi()} - {target.get_agi()} ({user.get_agi() - target.get_agi()}) is greater than threshold of {random_chance}: steal succeeds")
+        money_min = int(target.Money_Reward * 0.3) if int(target.Money_Reward * 0.3) > 0 else 1
+        money_stolen = random.randrange(money_min, target.Money_Reward + 1)
+        gamestate.print_with_conf(f"{user.Name} slips into the enemy's blindspot and steals {money_stolen} gold!")
+        GAME_STATE.money += money_stolen
+        target.Money_Reward -= int(target.Money_Reward * 0.3)
+    return
+
+
 
 def talk(user):
     target_found = False

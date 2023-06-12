@@ -190,7 +190,7 @@ def pliabrand(item):
             gamestate.add_callback("callback_enemy_is_targeted", pliabrand_target_override)
     else:
         return "dont_end_turn"
-    
+
 
 
 def medicinal_herb_bag(item):
@@ -220,7 +220,65 @@ def medicinal_herb_bag(item):
     return
             
 
+def sage_for_dummies(item):
+    if GAME_STATE.in_battle:
+        print_with_conf("You can't use this item in battle!")
+    print("PARTY\n")
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party Member {_ + 1}: {GAME_STATE.player_party[_].Name} (Current Job: {GAME_STATE.player_party[_].Job})")
+    print("\n\n")
     
+    cmd = input(f"Input the numbered party member you would like to become a Sage. For example, '1' is {GAME_STATE.player_party[0].Name}.\n(INPUT NUM) Input anything else to go back.").strip().lower()
+    try:
+        target = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
+        if target > len(GAME_STATE.player_party) - 1:
+            target = len(GAME_STATE.player_party) - 1
+        target_pc = GAME_STATE.player_party[target]
+    except ValueError:
+        return
+
+    cmd2 = input(f"(INPUT Y/N) Are you sure you want {target_pc.Name} to become a Sage?    ").strip().lower()
+    if cmd2 != "y":
+        return
+    else:
+        target_pc.change_job("sage")
+        print_with_conf(f"{target_pc.Name} successfully became a Sage!")
+        try:
+            item.ItemHolder.Items.remove(item)
+        except AttributeError:
+            item.ItemHolder.remove(item)
+
+
+def spellblade_for_dummies(item):
+    if GAME_STATE.in_battle:
+        print_with_conf("You can't use this item in battle!")
+    print("PARTY\n")
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party Member {_ + 1}: {GAME_STATE.player_party[_].Name} (Current Job: {GAME_STATE.player_party[_].Job})")
+    print("\n\n")
+    
+    cmd = input(f"Input the numbered party member you would like to become a Spellblade. For example, '1' is {GAME_STATE.player_party[0].Name}.\n(INPUT NUM) Input anything else to go back.").strip().lower()
+    try:
+        target = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
+        if target > len(GAME_STATE.player_party) - 1:
+            target = len(GAME_STATE.player_party) - 1
+        target_pc = GAME_STATE.player_party[target]
+    except ValueError:
+        return
+
+    cmd2 = input(f"(INPUT Y/N) Are you sure you want {target_pc.Name} to become a Spellblade?    ").strip().lower()
+    if cmd2 != "y":
+        return
+    else:
+        target_pc.change_job("sage")
+        print_with_conf(f"{target_pc.Name} successfully became a Spellblade!")
+        try:
+            item.ItemHolder.Items.remove(item)
+        except AttributeError:
+            item.ItemHolder.remove(item)
+
+
+
 ##########################
 #       ITEM DATA        #
 ##########################
@@ -339,6 +397,40 @@ item_data = {
                 "AGI": 0
             },
         }),
+        "SageForDummies": Item({
+            "ItemName": "Sage For Dummies",
+            "ItemDesc": "A book detailing the ins and outs of being a good Sage.\nAllows one party member to become a Sage without talking to Olivia.",
+            "ItemType": "active",
+            "ItemQuality": 3,
+            "ItemTrigger": None,
+            "ItemCallback": None,
+            "ItemUseEffect": sage_for_dummies,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 0,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
+        "SpellbladeForDummies": Item({
+            "ItemName": "Spellblade For Dummies",
+            "ItemDesc": "A book detailing the ins and outs of being a good Spellblade.\nAllows one party member to become a Spellblade without talking to Olivia.",
+            "ItemType": "active",
+            "ItemQuality": 3,
+            "ItemTrigger": None,
+            "ItemCallback": None,
+            "ItemUseEffect": spellblade_for_dummies,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 0,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
     },
     4: { # Secret Shop Pool (only quality 4)
         "JulietsPoison": Item({
@@ -346,7 +438,7 @@ item_data = {
             "ItemDesc": "A complicated piece of contraband that begins a new Loop while keeping your possessions and strength.\nTakes preparation. Can't be used in battle.",
             "ItemType": "active",
             "ItemQuality": 4,
-            "ItemTrigger": None
+            "ItemTrigger": None,
             "ItemCallback": None,
             "ItemUseEffect": None,
             "ItemStats": {
