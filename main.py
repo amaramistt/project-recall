@@ -2,16 +2,10 @@
 #
 #    \/ THINGS TO ACTUALLY WORK ON RIGHT NOW \/
 #
-# 1) >>> Create job mastery <<<
-#    Battles give job EXP, 1 for each enemy defeated. Get enough JEXP and you go up a Mastery Level; Get to Mastery Level 3 and the job is mastered. 
-#    Each Mastery Level has the character learn a new usable ability or passive ability, with the quality/importance of each ability increasing with each ML.
-#    After a job is mastered the job is put in the MasteredJobs attr of the character and a permanent stat bonus is applied
-#    When 2 specific jobs are mastered, a combination of the two becomes available to take at Olivia's,
-#    which is strictly better in every way in stats and abilities learned 
 #
-# 2) Finalize currently planned T2 jobs
+# 1) Finalize currently planned T2 jobs
 #
-# 3) Design and finalize more T2/3 jobs
+# 2) Design and finalize more T2/3 jobs
 #
 #
 #    \/ DO AT SOME POINT LATER \/
@@ -50,11 +44,13 @@ def main():
         began = gamestate.title_screen()
     while began:
         if GAME_STATE.debug_mode:
-            item.give_player_item(item.get_clone_by_name("SageForDummies"))
-            print_with_conf(f"{GAME_STATE.player_party[0].MasteredJobs}")
-            entity.party_place_handler()
-            battle.initiate_battle(1)
-            
+            item_given = False
+            while True:
+                if not item_given:
+                    item.give_player_item(item.get_clone_by_name("MedeasCurse"))
+                    item_given = True
+                gamestate.rest_time()
+                battle.initiate_battle(5)
         else:
             if cycle >= 5:
                 if not battle.initiate_battle(floor, True):
@@ -65,12 +61,12 @@ def main():
                 print_with_conf(f"Floor Increased to {GAME_STATE.floor}")
                 continue
             if cycle == 1 and GAME_STATE.floor == 1:
-                os.system(CLEAR)
+                gamestate.clear_terminal()
                 print_with_conf("Welcome to Project Recall!\nAt this moment, this game is mostly just a battle simulator.")
                 print_with_conf("You will be presented with mutliple encounters, getting new party members and levelling up between fights.")
                 print_with_conf("The party members you find are entirely randomized!\nMake sure to see what each class does in the tutorial if you haven't already.")
                 print_with_conf("Have fun! <3")
-                os.system(CLEAR)
+                gamestate.clear_terminal()
                 print_with_conf("You, Khorynn, stand before the entrance of a cave. It is a special cave, one that you have planned to explore for some time.")
                 print_with_conf("Although the looming mouth of the cave is intimidating, you swallow your nerves and begin your expedition down.")
                 print_with_conf("After a few twists and turns, you discover an incredibly red door labeled 'Olivia's Party Place' that, for good reason, catches your attention.")
@@ -90,12 +86,12 @@ def main():
                     began = False
                     continue
                 cycle += 1
-                os.system(CLEAR)
+                gamestate.clear_terminal()
                 
             elif cycle == 2 and GAME_STATE.floor == 1:
                 for guy in GAME_STATE.player_party:
                     entity.level_up(guy, 9)
-                os.system(CLEAR)
+                gamestate.clear_terminal()
                 print_with_conf("In the aftermath of the battle, gathering your bearings, you notice a bright yellow door behind a corner.")
                 print_with_conf("Music blares from inside so loudly that the thick stone walls of the cave can't drown it out.")
                 print_with_conf("The door slams open! You ready yourself for battle as a slightly chubby middle-aged man appears.")

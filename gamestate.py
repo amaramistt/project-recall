@@ -3,6 +3,7 @@ import sys
 import random
 import entity as ENTY
 import item as ITM
+import json
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
 
@@ -15,6 +16,7 @@ class GameState(object):
         self.enemy_party = []
         self.bagged_items = []
         self.passives = []
+        self.khorynn = None
         self.floor = 0
         self.money = 0
         self.xp_count = 0
@@ -22,11 +24,13 @@ class GameState(object):
         self.turn_order = []
         self.battle_entity_targeted = None
         self.battle_entity_attacking = None
+        self.battle_bloodthirsty_triggered = False
         self.message_log = []
         self.debug_mode = False
         self.player_changed_jobs = False
         self.player_got_new_party_member = False
         self.player_bought_something = False
+        self.shop_stock = []
 
 
 GAME_STATE = GameState()
@@ -48,7 +52,9 @@ callback_trigger_args = {
     "callback_turn_phase_2": [],
     "callback_turn_phase_3": [],
     "callback_item_pickup": ["entity_picking_up", "item_picking_up"],
-    "callback_item_being_used": ["item_being_used", "entity_using_item"]
+    "callback_item_being_used": ["item_being_used", "entity_using_item"],
+    "callback_shop_items_generated": [],
+    "callback_battle_is_finished": [],
 }
 
 callback_triggers = {
@@ -68,20 +74,31 @@ callback_triggers = {
     "callback_turn_phase_post_bloodthirsty": [],
     "callback_item_pickup": [],
     "callback_item_being_used": [],
-    "callback_turn_timer": []
+    "callback_turn_timer": [],
+    "callback_shop_items_generated": [],
+    "callback_battle_is_finished": [],
 }
 
 def get_callback_triggers_map():
     return callback_triggers
-    
+
+def move_to_line(x = 0, y = 0):
+    print("\033[%d;%dH" % (y, x))
+
+def clear_terminal():
+    os.system(CLEAR)
+    print()
+
 def add_callback(trigger, callback):
-    if callback == None:
+    if callback is None:
         return
     if trigger not in callback_triggers:
         raise ValueError(f"{trigger} is FAKE!!! not a real callback")
     callback_triggers[trigger].append(callback)
 
 def remove_callback(trigger, callback):
+    if trigger is None:
+        return
     if trigger not in callback_triggers:
         raise ValueError(f"{trigger} is FAKE!!! not a real callback")
     if callback not in callback_triggers[trigger]:
@@ -96,10 +113,11 @@ def run_callbacks(trigger, **kwargs):
         callback_args = {k: kwargs[k] for k in callback_trigger_args[trigger]}
         callback(**callback_args)
 
+
 def print_tutorial():
     print("Basic Combat Tutorial")
     print_with_conf("In this tutorial, you will learn the basics of combat.", True)
-    os.system(CLEAR)
+    clear_terminal()
     print("STATISTICS")
     print_with_conf("Your characters' statistics are the backbone of combat. There are several stats that directly affect the effectiveness of your units.", True)
     print_with_conf("HP or Health Points: How much damage one can take before dying.", True)
@@ -108,7 +126,7 @@ def print_tutorial():
     print_with_conf("RES or Resilience: How effective one is at taking hits.", True)
     print_with_conf("MND or Mind: How effective one is at using magic and resisting urges.", True)
     print_with_conf("AGI or Agility: How fast one is.", True)
-    os.system(CLEAR)
+    clear_terminal()
     print("JOBS")
     print_with_conf("Jobs affect a character's stats and learnable abilities.", True)
     print_with_conf("There will be more jobs with more in-depth mechanics later, but these are the jobs available to you currently.", True)
@@ -118,7 +136,7 @@ def print_tutorial():
     print_with_conf("Thief: Generalists with exceptional speed. Gets things done and gets things done before anyone else.", True)
     print_with_conf("Monk: Fast, decently bulky physical fighters that don't need weapons to kill. Say your prayers.", True)
     print_with_conf("Priest: Squishy backliners that support their allies with healing and buffs. Keep them safe and they'll return the favor!", True)
-    os.system(CLEAR)
+    clear_terminal()
     print("COMMANDS")
     print_with_conf("When it is a player characters' turn in battle, you will be asked to input a command.", True)
     print_with_conf("A list of available commands will follow.", True)
@@ -126,30 +144,29 @@ def print_tutorial():
     print_with_conf("Ability: Initiates the process of using abilities. Most of them use MP!", True)
     print_with_conf("Pass: Passes your turn. Your character will not act that turn.", True)
     print_with_conf("Item: Shows the inventory of your character and allows for the use of active items!", True)
-    os.system(CLEAR)
+    clear_terminal()
     print("BLOODTHIRSTINESS")
     print_with_conf("Whenever a character kills an opposing character, they immediately take another turn.", True)
-    print_with_conf("Both enemies and player characters are affected by bloodthirstiness.", True)
     print_with_conf("In the extra turn, you may *only* attack, with either a basic attack or with a spell.", True)
     print_with_conf("Nobody may take two bloodthirsty turns in a row.", True)
-    os.system(CLEAR)
+    clear_terminal()
     print_with_conf("More to come in the future! Good luck!", True)
-    os.system(CLEAR)
+    clear_terminal()
 
 def begin_run_handler():
-    os.system(CLEAR)
+    clear_terminal()
     if not GAME_STATE.debug_mode:
         # start with a selected job
         print(f"Jobs available for selection:")
         for job in ENTY.find_available_jobs():
-            print(f"{job}")
-            #HOW DO I MAKE THIS GRAMMATICALLY CORRECT :((((((
+            print(f"{ENTY.get_jobs_map()[job]['name']}")
         while True:
             char_job = input("\n\nWhat job should Khorynn start with? ").strip().lower()
             if char_job in ENTY.get_jobs_map().keys():
                 Khorynn = ENTY.generate_khorynn(char_job)
                 GAME_STATE.player_party.append(Khorynn)
-                print_with_conf(f"Character sheet\n{GAME_STATE.player_party[0]}")
+                GAME_STATE.khorynn = Khorynn
+                print_with_conf(f"Character sheet\n{GAME_STATE.khorynn}")
                 return True
             else:
                 print_with_conf("That is not an available job!")
@@ -159,15 +176,16 @@ def begin_run_handler():
         print_with_conf("Through the power of debugging, you are blessed with Ultra Mega Debug Khorynn!!!!", True)
         Khorynn = ENTY.generate_khorynn("balls")
         GAME_STATE.player_party.append(Khorynn)
-        print_with_conf(f"Character sheet\n{GAME_STATE.player_party[0]}", True)
+        GAME_STATE.khorynn = Khorynn
+        print_with_conf(f"Character sheet\n{GAME_STATE.khorynn}", True)
         return True
 
 def title_screen():
     GAME_STATE.reset()
-    os.system(CLEAR)
+    clear_terminal()
     print("                P R O J E C T    R E C A L L")
     print_with_conf("                    Press Enter To Start    ", True)
-    os.system(CLEAR)
+    clear_terminal()
     print("NEW GAME - TUTORIAL - BACK")
     cmd = input("Choose. ").strip().lower()
     if cmd == "new game":
@@ -193,7 +211,7 @@ def rest_time():
     GAME_STATE.player_changed_jobs = False
     GAME_STATE.player_got_new_party_member = False
     GAME_STATE.player_bought_something = False
-    os.system(CLEAR)
+    clear_terminal()
     player_has_party = True
     if len(GAME_STATE.player_party) > 1:
         player_has_party = True
@@ -204,12 +222,12 @@ def rest_time():
         print_with_conf("Your party quickly follow your lead.")
     print_with_conf("Rejuvenated by the comforting warmth, your health and mental capacity are restored.")
     for pc in GAME_STATE.player_party:
-        pc.HP = pc.MaxHP
-        pc.MP = pc.MaxMP
+        pc.HP = pc.get_max_hp()
+        pc.MP = pc.get_max_mp()
     print_with_conf("Party's HP and MP maxed out!")
     
     while True:
-        os.system(CLEAR)
+        clear_terminal()
         
         print("The dying fire inspires thought... There are many things you could do to prepare for the dangers ahead.")
         cmd = input("Will you visit Olivia's 'party' planning service?\nWould you rather take a look at your stats and manage your items in the 'menu'?\nDo you want to check out what Ornaldo has in his 'shop'?\n(INPUT) Or, are you 'done' resting up?    ").lower().strip()
@@ -233,16 +251,18 @@ def rest_time():
                 return
 
 def load_cutscene(cutscene_ID):
-    # IN CONSTRUCTION 
-    # finds the cutscene ID from a large database of cutscenes
-    # has some system in which this function could interpret some text as instructions
-    # i.e. if i call load_cutscene(5) it would load cutscene 5 and make sure that each character moves and speaks the correct way
-    # i.e. if cutscene ID 5 was one line saying "(Khorynn)(FACE_LEFT)'Are you serious?'", Khorynn would face left and say 'Are you serious?'
-    # gonna have to get real used to using for x in y :3
-    pass
+    clear_terminal()
+    with open(f"data/scenes/{cutscene_ID}.sdt") as file:
+        for line in file:
+            if "CMD_CLEAR" in line:
+                input(f"'CMD_CLEAR' found in line: {line}")
+                clear_terminal()
+            else:
+                input("not clearing")
+                print_with_conf(f"{line}\033[A")
 
 def menu():
-    os.system(CLEAR)
+    clear_terminal()
     print("PARTY\n")
     for _ in range(len(GAME_STATE.player_party)):
         print(f"Party member {_ + 1}: {GAME_STATE.player_party[_].Name}")
@@ -269,7 +289,7 @@ def menu():
         cmd = len(GAME_STATE.player_party) - 1 if cmd >= len(GAME_STATE.player_party) else cmd
         selected_pc = GAME_STATE.player_party[cmd]
     except ValueError:
-        os.system(CLEAR)
+        clear_terminal()
         return
     
     pc_management_menu(selected_pc)
@@ -294,7 +314,7 @@ def stash_management_menu():
     cmd = len(GAME_STATE.bagged_items) if cmd > len(GAME_STATE.bagged_items) else cmd
     chosen_item = GAME_STATE.bagged_items[cmd - 1]
 
-    os.system(CLEAR)
+    clear_terminal()
     print(f"Item Name: {chosen_item.ItemName}")
     print(f"Item Description: {chosen_item.ItemDesc}")
     print(f"Item Type: {chosen_item.ItemType}")
@@ -378,11 +398,11 @@ def print_with_conf(message, from_menu: bool = False):
         if confirm == "menu":
             menu()
         elif confirm == "log":
-            os.system(CLEAR)
+            clear_terminal()
             for each_message in reversed(GAME_STATE.message_log):
                 print(each_message)
             input()
-            os.system(CLEAR)
+            clear_terminal()
         else:
             confirmed = True
 
@@ -393,7 +413,7 @@ def print_with_conf(message, from_menu: bool = False):
     
         
 def pc_management_menu(chosen_pc):
-    os.system(CLEAR)
+    clear_terminal()
     print(chosen_pc)
     print(f"Job: {chosen_pc.Job}")
     print(f"Job Experience: {chosen_pc.JEXP}")
@@ -429,7 +449,7 @@ def pc_management_menu(chosen_pc):
     cmd = len(chosen_pc.Items) if cmd > len(chosen_pc.Items) else cmd
     chosen_item = chosen_pc.Items[cmd - 1]
     
-    os.system(CLEAR)
+    clear_terminal()
     print(chosen_item.ItemName)
     print(f"Item Type: {chosen_item.ItemType}")
     if chosen_item.ItemType == "equip":
@@ -493,12 +513,20 @@ def pc_management_menu(chosen_pc):
 def debug_menu():
     if not GAME_STATE.debug_mode:
         return
-    for pc in GAME_STATE.player_party:
-        print(f"{pc.Name}: ML{pc.MasteryLevel}")
-    print("\n")
-    cmd = int(input("input how much JEXP you want to give the first party member"))
-    GAME_STATE.player_party[0].JEXP += cmd
-    ENTY.check_for_mastery_level_up(GAME_STATE.player_party[0])
+
+    cmd = input("do you want to give 'money' or 'jexp'?").strip().lower()
+    if cmd == "money":
+        cmd = int(input("input how much money you want to give"))
+        GAME_STATE.money += cmd
+        return
+    if cmd == "jexp":
+        for pc in GAME_STATE.player_party:
+            print(f"{pc.Name}: ML{pc.MasteryLevel}")
+        print("\n")
+        cmd = int(input("input how much JEXP you want to give the first party member"))
+        GAME_STATE.player_party[0].JEXP += cmd
+        ENTY.check_for_mastery_level_up(GAME_STATE.player_party[0])
+        return
     
 
 def deal_damage_to_target(attacker, target, damage):
@@ -508,10 +536,13 @@ def deal_damage_to_target(attacker, target, damage):
         target.HP = 0
 
     run_callbacks("callback_entity_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
-    run_callbacks("callback_pc_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+    if target.EntityType == "Khorynn" or target.EntityType == "PlayerCharacter":
+        run_callbacks("callback_pc_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+    else:
+        run_callbacks("callback_enemy_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
     
     if target.EntityType == "PlayerCharacter":
-        print_with_conf(f"{target.Name} is at {target.HP}/{target.MaxHP} HP!")
+        print_with_conf(f"{target.Name} is at {target.HP}/{target.get_max_hp()} HP!")
     
     if target.HP <= 0:
         print_with_conf(f"{target.Name} Has Fallen!")

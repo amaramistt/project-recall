@@ -4,7 +4,7 @@ import random
 import copy
 import item
 
-from gamestate import GAME_STATE, print_with_conf
+from gamestate import GAME_STATE, print_with_conf, clear_terminal
 
 CLEAR = 'cls' if os.name == 'nt' else 'clear'
 item_data = item.get_item_data_map()
@@ -30,6 +30,8 @@ jobs = {
     # MD 2 means 10 JEXP to ML1, 15 JEXP to ML2, 20 JEXP to ML3
     # MD 3 means 20 JEXP to ML1, 35 JEXP to ML2, 50 JEXP to ML3
 
+    # Commented Job = iffy ideas, might not make it into the game
+    
     #Tier 1 Jobs: No dependencies, must be mastered to unlock T2 Jobs
     
     "warrior": {
@@ -72,7 +74,6 @@ jobs = {
         "tier": 1,
         "abilities": {
             1: "heal",
-            2: "resilienceprayer"
         }
     },
     "thief": {
@@ -97,7 +98,6 @@ jobs = {
     },
     
     # Tier Two Jobs: Have dependencies, are combined and stictly better versions of their dependencies 
-    # Commented Job = iffy ideas, might not make it into the game
     
     "spellblade": {
         "name": "Spellblade",
@@ -107,11 +107,6 @@ jobs = {
         "tier": 2,
         "abilities": {}
     },
-    # "battle medic": {
-    #     "stats": [],
-    #     "dependencies": ["warrior", "priest"],
-    #     "abilities": {}        
-    # },
     "assassin": {
         "name": "Assassin",
         "stats": [3,3,5,2,3,4],
@@ -131,7 +126,7 @@ jobs = {
         "abilities": {
             1: "analyze",
             2: "raisemorale",
-        }        
+        }
     },
     "sage": {
         "name": "Sage",
@@ -141,7 +136,7 @@ jobs = {
         "tier": 2,
         "abilities": {
             1: "rejuvenationprayer",
-            2: "wisdomize",
+            2: "resilienceprayer",
             3: "meteor"
         }        
     },
@@ -158,13 +153,8 @@ jobs = {
     #     "dependencies": ["mage", "monk"],
     #     "abilities": {}        
     # },
-    # "first responder": {
-    #     "stats": [],
-    #     "dependencies": ["priest", "thief"],
-    #     "abilities": {}        
-    # },
-    "faithful": {
-        "name": "Faithful",
+    "reverend": {
+        "name": "Reverend",
         "stats": [3,4,3,3,4,3],
         "dependencies": ["priest", "monk"],
         "mastery_difficulty": 2,
@@ -174,11 +164,49 @@ jobs = {
     "merchant": {
         "name": "Merchant",
         "stats": [4,2,3,3,4,2],
-        "dependencies": ["just a guy", "thief"],
+        "dependencies": ["just a guy"],
         "mastery_difficulty": 2,
         "tier": 2,
         "abilities": {} 
-    }
+    },
+
+    # Tier 3 Jobs
+
+    "sorcerer supreme": {
+        "name": "Sorcerer Supreme",
+        "stats": [3,6,3,4,7,5],
+        "dependencies": ["sage", "reverend"],
+        "mastery_difficulty": 3,
+        "tier": 3,
+        "abilities": {} 
+    },
+    "champion": {
+        "name": "Champion",
+        "stats": [6,4,5,7,3,3],
+        "dependencies": ["spellblade", "tactician", "assassin"],
+        "mastery_difficulty": 3,
+        "tier": 3,
+        "abilities": {} 
+    },
+    "broker": {
+        "name": "Broker",
+        "stats": [4,2,3,3,4,2],
+        "dependencies": ["merchant", "trickster"],
+        "mastery_difficulty": 3,
+        "tier": 3,
+        "abilities": {} 
+    },
+
+# Tier 4 Job: Hero
+    
+    "hero": {
+        "name": "Hero",
+        "stats": [8,7,8,7,8,8],
+        "dependencies": ["broker", "champion", "sorcerer supreme"],
+        "mastery_difficulty": 3,
+        "tier": 4,
+        "abilities": {} 
+    },
 }
 
 
@@ -319,12 +347,13 @@ class Entity(object):
         self.RES = template["RES"]
         self.MND = template["MND"]
         self.AGI = template["AGI"]
-        self.MP = self.MaxMP
+        self.MP = self.MaxHP
         self.HP = self.MaxHP
         self.Abilities = template["Abilities"]
         if self.EntityType == "Enemy" or self.EntityType == "BossEnemy":
             self.EXP_Reward = template["EXP_Reward"]
             self.Money_Reward = template["Money_Reward"]
+            self.Item_Reward = template["Item_Reward"]
         if self.EntityType == "BossEnemy":
             self.BossLogic = template["BossLogic"]
             self.Phases = template["Phases"]
@@ -344,7 +373,6 @@ class Entity(object):
                 "MND": 0,
                 "AGI": 0
             }
-            self.MasteredJobs = {}
         self.StatChanges = {
             "STR": 0,
             "RES": 0,
@@ -371,12 +399,20 @@ class Entity(object):
         # makes it so that whenever the class object itself is printed, it prints the below instead!
         if self.EntityType == "Enemy" or self.EntityType == "BossEnemy":
             
-            return f'Name: {self.Name}\nLevel: {self.Level}\n\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
+            return f'Name: {self.Name}\nLevel: {self.Level}\n\nHP: {self.HP}/{self.get_max_hp()}\nMP: {self.MP}/{self.get_max_mp()}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
 
         
-        return f'Name: {self.Name}\nLevel: {self.Level}\nJob: {jobs[self.Job]["name"]}\n\nHP: {self.HP}/{self.MaxHP}\nMP: {self.MP}/{self.MaxMP}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
+        return f'Name: {self.Name}\nLevel: {self.Level}\nJob: {jobs[self.Job]["name"]}\n\nHP: {self.HP}/{self.get_max_hp()}\nMP: {self.MP}/{self.get_max_mp()}\nSTR: {self.get_strength()}\nRES: {self.get_res()}\nMND: {self.get_mind()}\nAGI: {self.get_agi()}\n\n'
 
         
+    def get_max_hp(self):
+        return int(self.MaxHP + self.EquipmentStats["MaxHP"])
+
+                   
+    def get_max_mp(self):
+        return int(self.MaxMP + self.EquipmentStats["MaxMP"])
+
+                   
     def get_strength(self):
         return int(self.STR * stat_modifier_table[self.StatChanges["STR"]]) + self.EquipmentStats["STR"]
 
@@ -406,6 +442,7 @@ class Entity(object):
         for stat in self.EquipmentStats.keys():
             self.EquipmentStats[stat] = 0
         for stat in ["MaxHP", "MaxMP", "STR", "RES", "MND", "AGI"]:
+            
             percent = sum([item.ItemStats[stat] for item in [self.EquippedWeapon, self.EquippedArmor] + self.EquippedAccessories]) / 100
             self.EquipmentStats[stat] = int(getattr(self, stat) * percent)
 
@@ -472,7 +509,8 @@ entities = {
         "MND": 15,
         "AGI": 10,
         "EXP_Reward": 1,
-        "Money_Reward": 15,
+        "Money_Reward": 5,
+        "Item_Reward": {"MedicinalHerb": 30},
         "Abilities": {}
     }),
     "EnemyWarrior": Entity({
@@ -486,7 +524,8 @@ entities = {
         "MND": 3,
         "AGI": 4,
         "EXP_Reward": 1,
-        "Money_Reward": 15,
+        "Money_Reward": 5,
+        "Item_Reward": {"StrengthComplimentary": 20},
         "Abilities": {}
 
     }),
@@ -501,7 +540,8 @@ entities = {
         "MND": 1,
         "AGI": 12,
         "EXP_Reward": 1,
-        "Money_Reward": 10,
+        "Money_Reward": 3,
+        "Item_Reward": {"AgilityComplimentary": 20},
         "Abilities": {}
     }),
     "Slime": Entity({
@@ -515,7 +555,8 @@ entities = {
         "MND": 1,
         "AGI": 6,
         "EXP_Reward": 1,
-        "Money_Reward": 5,
+        "Money_Reward": 2,
+        "Item_Reward": {"MedicinalHerb": 20},
         "Abilities": {}
     }),
     
@@ -530,7 +571,8 @@ entities = {
         "MND": 30,
         "AGI": 30,
         "EXP_Reward": 1,
-        "Money_Reward": 20,        
+        "Money_Reward": 7,        
+        "Item_Reward": {"StrengthComplimentary": 60},
         "Abilities": {}
     }),
     "StalwartWizard": Entity({
@@ -544,7 +586,8 @@ entities = {
         "MND": 80,
         "AGI": 70,
         "EXP_Reward": 1,
-        "Money_Reward": 20,        
+        "Money_Reward": 7,     
+        "Item_Reward": {"MedicinalHerbBag": 30},
         "Abilities": {}
     }),
     "DisgracedMonk": Entity({
@@ -558,7 +601,8 @@ entities = {
         "MND": 110,
         "AGI": 150,
         "EXP_Reward": 1,
-        "Money_Reward": 15,        
+        "Money_Reward": 5,    
+        "Item_Reward": None,
         "Abilities": {}
     }),
     "SorcererSupreme": Entity({
@@ -572,7 +616,8 @@ entities = {
         "MND": 200,
         "AGI": 140,
         "EXP_Reward": 1,
-        "Money_Reward": 20,        
+        "Money_Reward": 5,        
+        "Item_Reward": {"MindComplimentary": 100},
         "Abilities": {}        
     }),
     "CraftyThief": Entity({
@@ -586,7 +631,8 @@ entities = {
         "MND": 100,
         "AGI": 200,
         "EXP_Reward": 1,
-        "Money_Reward": 50,        
+        "Money_Reward": 10,     
+        "Item_Reward": {"MerchantsCrest": 10},
         "Abilities": {}        
     }),
     "GelatinousKing": Entity({
@@ -600,7 +646,8 @@ entities = {
         "MND": 100,
         "AGI": 210,
         "EXP_Reward": 1,
-        "Money_Reward": 100,        
+        "Money_Reward": 25,      
+        "Item_Reward": {"GelatinousCrown": 100},
         "BossLogic": "king_slime",
         "Phases": {
             "Spawn Phase 1": False,
@@ -621,7 +668,8 @@ entities = {
         "MND": 100,
         "AGI": 230,
         "EXP_Reward": 1,
-        "Money_Reward": 0,        
+        "Money_Reward": 0,   
+        "Item_Reward": None,
         "Abilities": {}
     }),
     "StoneGolem": Entity({
@@ -635,13 +683,63 @@ entities = {
         "MND": 2,
         "AGI": 80,
         "EXP_Reward": 1,
-        "Money_Reward": 100,        
+        "Money_Reward": 25,      
+        "Item_Reward": {"GolemHeart": 100},
         "BossLogic": "stone_golem",
         "Phases": {
             "Phase 2": False
         },
         "Abilities": {}
-    })
+    }),
+    "InsurgentMessiah": Entity({
+        "Name": "Insurgent Messiah",
+        "EntityType": "BossEnemy",
+        "Level": 30,
+        "MaxHP": 4000,
+        "MaxMP": 300,
+        "STR": 150,
+        "RES": 180,
+        "MND": 290,
+        "AGI": 300,
+        "EXP_Reward": 1,
+        "Money_Reward": 25,      
+        "Item_Reward": {"MessiahsCloak": 100},
+        "BossLogic": "insurgent_messiah",
+        "Phases": {
+            "Summon Phase": False
+        },
+        "Abilities": {}
+    }),
+    "InsurgentGrunt": Entity({
+        "Name": "Insurgent Grunt",
+        "EntityType": "Enemy",
+        "Level": 30,
+        "MaxHP": 500,
+        "MaxMP": 30,
+        "STR": 100,
+        "RES": 120,
+        "MND": 240,
+        "AGI": 200,
+        "EXP_Reward": 1,
+        "Money_Reward": 0,   
+        "Item_Reward": None,
+        "Abilities": {}
+    }),
+    "TrainingDummy": Entity({
+        "Name": "Training Dummy",
+        "EntityType": "Enemy",
+        "Level": 1,
+        "MaxHP": 5000000000000000000000000000,
+        "MaxMP": 0,
+        "STR": 0,
+        "RES": 0,
+        "MND": 0,
+        "AGI": 0,
+        "EXP_Reward": 1,
+        "Money_Reward": 0,   
+        "Item_Reward": None,
+        "Abilities": {}
+    }),
 }
 
 
@@ -688,8 +786,8 @@ def gen_starting_stats(character: Entity, first_generation: bool = True):
     character.RES = roll_stat(char_job["stats"][3], True)
     character.MND = roll_stat(char_job["stats"][4], True)
     character.AGI = roll_stat(char_job["stats"][5], True)
-    character.HP = character.MaxHP
-    character.MP = character.MaxMP
+    character.HP = character.get_max_hp()
+    character.MP = character.get_max_mp()
 
     if first_generation:
         character.Level = 1
@@ -717,8 +815,8 @@ def level_up(character: Entity, times_to_level: int = 1, invisible: bool = False
         character.RES += roll_stat(char_job["stats"][3], False)
         character.MND += roll_stat(char_job["stats"][4], False)
         character.AGI += roll_stat(char_job["stats"][5], False)
-        character.HP = character.MaxHP
-        character.MP = character.MaxMP
+        character.HP = character.get_max_hp()
+        character.MP = character.get_max_mp()
 
     if not invisible:
         if times_to_level > 1:
@@ -823,7 +921,7 @@ def generate_party_member(party_level, name=""):
 
 
 def present_player_party_members():
-    os.system(CLEAR)
+    clear_terminal()
     if len(GAME_STATE.player_party) <= 3:
         party_level = find_party_level(GAME_STATE.player_party)
         print_with_conf("OLIVIA) OK, love, I've got two adventurers here for you. You can only take one.")
@@ -854,7 +952,7 @@ def present_player_party_members():
 def generate_khorynn(chosen_job):
     if GAME_STATE.debug_mode:
         MEGAKHORYNN = copy.deepcopy(entities["MEGAKHORYNN"])
-        MEGAKHORYNN.change_job(MEGAKHORYNN.Job)
+        MEGAKHORYNN.change_job("hero")
         return MEGAKHORYNN
     Khorynn = generate_party_member(1, "Khorynn")
     Khorynn.change_job(chosen_job)
@@ -863,7 +961,7 @@ def generate_khorynn(chosen_job):
     return Khorynn
 
 def job_change_handler():
-    os.system(CLEAR)
+    clear_terminal()
     selected_pc = None
     finished = False
     
@@ -881,7 +979,7 @@ def job_change_handler():
     except ValueError:
         return "backed_out"
 
-    os.system(CLEAR)
+    clear_terminal()
     print_with_conf(f"OLIVIA) {selected_pc.Name}... Mmm, that one.")
     
     while not finished:
@@ -900,7 +998,7 @@ def job_change_handler():
                     return "backed_out"
                      
 
-            os.system(CLEAR)
+            clear_terminal()
             print_with_conf(f"OLIVIA) Alright, come here, {selected_pc.Name}. Look deep into my eyes.")
             print_with_conf(f"{selected_pc.Name} steps up towards Olivia. They stare into each other's eyes for a few seconds.")
             print_with_conf("Suddenly, Olivia grabs hold of them and starts shaking them around violently while shouting in their face!")
@@ -920,7 +1018,7 @@ def party_place_handler():
     player_is_finished = False
 
     while not player_is_finished:
-        os.system(CLEAR)
+        clear_terminal()
         print("OLIVIA) Welcome to my party planning place.\n* What are you looking to be done today, love?")
         cmd = input("(INPUT) You think of whether you want to find a new 'party member' or 'change jobs'... or just 'leave'.  ").strip().lower()
         
