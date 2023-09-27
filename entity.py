@@ -209,92 +209,98 @@ jobs = {
     },
 }
 
+class Ability(object):
+    def __init__(self, template):
+        self.name = template.name
+        self.callback = template.callback
+        target = self.target
+        type = self.type
 
 
 abilities = {
     
-    "focus": {
+    "focus": Ability({
         "name": "Focus",
         "callback": "focus",
         "target": "TARGET_SELF",
         "type": "BATTLE_ACTIVE",
-    },
-    "fireball": {
+    }),
+    "fireball": Ability({
         "name": "Fireball",
         "callback": "forfireball",
         "type": "BATTLE_ACTIVE",
         "target": "TARGET_DIRECT"
-    },
-    "spark": {
+    }),
+    "spark": Ability({
         "name": "Spark",
         "callback": "spark",
         "type": "BATTLE_ACTIVE",
-    },
-    "skullcrusher": {
+    }),
+    "skullcrusher": Ability({
         "name": "Skull Crusher",
         "type": "BATTLE_ACTIVE",
         "callback": "skull_crusher",
         "target": "TARGET_VICTIM"
-    },
-    "talk": {
+    }),
+    "talk": Ability({
         "name": "Talk",
         "type": "BATTLE_ACTIVE",
         "callback": "talk_ability"
-    },
-    "slap": {
+    }),
+    "slap": Ability({
         "name": "Slap",
         "type": "BATTLE_ACTIVE",
         "callback": "slap",
         "target": "TARGET_SELF"
-    },
-    "heal": {
+    }),
+    "heal": Ability({
         "name": "Heal",
         "type": "OMNI_ACTIVE",
         "callback": "heal",
         "target": "TARGET_PARTY"
-    },
-    "resilienceprayer": {
+    }),
+    "resilienceprayer": Ability({
         "name": "Resilience Prayer",
         "type": "BATTLE_ACTIVE",
         "callback": "resilience_prayer",
         "target": "TARGET_PARTY_ALL"
-    },
-    "steal": {
+    }),
+    "steal": Ability({
         "name": "Steal",
         "type": "BATTLE_ACTIVE",
         "callback": "steal",
         "target": None
-    },
-    "rejuvenationprayer": {
+    }),
+    "rejuvenationprayer": Ability({
         "name": "Rejuvenation Prayer",
         "type": "OMNI_ACTIVE",
         "callback": "rejuvenation_prayer"
-    },
-    "meteor": {
+    }),
+    "meteor": Ability({
         "name": "Meteor",
         "type": "BATTLE_ACTIVE",
         "callback": "meteor"
-    },
-    "wisdomize": {
+    }),
+    "wisdomize": Ability({
         "name": "Wisdomize",
         "type": "BATTLE_ACTIVE",
         "callback": "wisdomize"
-    },
-    "assassinstab": {
+    }),
+    "assassinstab": Ability({
         "name": "Assassin's Stab",
         "type": "BATTLE_ACTIVE",
         "callback": "assassinstab"
-    },
-    "analyze": {
+    }),
+    "analyze": Ability({
         "name": "Analyze",
         "type": "BATTLE_ACTIVE",
         "callback": "analyze"
-    },
-    "raisemorale": {
+    }),
+    "raisemorale": Ability({
         "name": "Raise Morale",
         "type": "BATTLE_ACTIVE",
         "callback": "raisemorale"
-    },
+    }),
     
 }
 
@@ -349,13 +355,14 @@ class Entity(object):
         self.AGI = template["AGI"]
         self.MP = self.MaxHP
         self.HP = self.MaxHP
+        self.Status = "HEALTHY"
+        self.DoomCounter = 0
         self.Abilities = template["Abilities"]
         if self.EntityType == "Enemy" or self.EntityType == "BossEnemy":
             self.EXP_Reward = template["EXP_Reward"]
             self.Money_Reward = template["Money_Reward"]
             self.Item_Reward = template["Item_Reward"]
-        if self.EntityType == "BossEnemy":
-            self.BossLogic = template["BossLogic"]
+            self.AI = template["AI"]
             self.Phases = template["Phases"]
         elif self.EntityType == "PlayerCharacter" or self.EntityType == "Khorynn":
             self.ExperienceCount = 0
@@ -511,7 +518,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 5,
         "Item_Reward": {"MedicinalHerb": 30},
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "EnemyWarrior": Entity({
         "Name": "Stalwart Warrior",
@@ -526,7 +535,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 5,
         "Item_Reward": {"StrengthComplimentary": 20},
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
 
     }),
     "Volakuma": Entity({
@@ -542,7 +553,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 3,
         "Item_Reward": {"AgilityComplimentary": 20},
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "Slime": Entity({
         "Name": "Slime",
@@ -557,7 +570,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 2,
         "Item_Reward": {"MedicinalHerb": 20},
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     
     "EnragedWarrior": Entity({
@@ -573,7 +588,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 7,        
         "Item_Reward": {"StrengthComplimentary": 60},
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "StalwartWizard": Entity({
         "Name": "Stalwart Wizard",
@@ -588,7 +605,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 7,     
         "Item_Reward": {"MedicinalHerbBag": 30},
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "DisgracedMonk": Entity({
         "Name": "Disgraced Monk",
@@ -603,7 +622,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 5,    
         "Item_Reward": None,
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "SorcererSupreme": Entity({
         "Name": "Sorcerer Supreme",
@@ -618,7 +639,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 5,        
         "Item_Reward": {"MindComplimentary": 100},
-        "Abilities": {}        
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "CraftyThief": Entity({
         "Name": "Crafty Thief",
@@ -633,7 +656,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 10,     
         "Item_Reward": {"MerchantsCrest": 10},
-        "Abilities": {}        
+        "Abilities": {},      
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "GelatinousKing": Entity({
         "Name": "Gelatinous King",
@@ -648,7 +673,7 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 25,      
         "Item_Reward": {"GelatinousCrown": 100},
-        "BossLogic": "king_slime",
+        "AI": "king_slime",
         "Phases": {
             "Spawn Phase 1": False,
             "Spawn Phase 2": False,
@@ -670,7 +695,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 0,   
         "Item_Reward": None,
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "StoneGolem": Entity({
         "Name": "Stone Golem",
@@ -685,7 +712,7 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 25,      
         "Item_Reward": {"GolemHeart": 100},
-        "BossLogic": "stone_golem",
+        "AI": "stone_golem",
         "Phases": {
             "Phase 2": False
         },
@@ -704,7 +731,7 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 25,      
         "Item_Reward": {"MessiahsCloak": 100},
-        "BossLogic": "insurgent_messiah",
+        "AI": "insurgent_messiah",
         "Phases": {
             "Summon Phase": False
         },
@@ -723,7 +750,9 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 0,   
         "Item_Reward": None,
-        "Abilities": {}
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
     }),
     "TrainingDummy": Entity({
         "Name": "Training Dummy",
@@ -738,6 +767,30 @@ entities = {
         "EXP_Reward": 1,
         "Money_Reward": 0,   
         "Item_Reward": None,
+        "Abilities": {},
+        "Phases": {},
+        "AI": "ai_random"
+    }),
+    "RhysBoss": Entity({
+        "Name": "Rhys",
+        "EntityType": "BossEnemy",
+        "Level": 30,
+        "MaxHP": 5000,
+        "MaxMP": 500,
+        "STR": 310,
+        "RES": 200,
+        "MND": 200,
+        "AGI": 310,
+        "EXP_Reward": 1,
+        "Money_Reward": 25,      
+        "Item_Reward": {"RhysBossDagger": 100},
+        "AI": "rhys_boss_logic",
+        "Phases": {
+            "Blade Enchanted": False,
+            "Phase 2": False,
+            "Phase 3": False,
+            "Wounded": False
+        },
         "Abilities": {}
     }),
 }
@@ -834,6 +887,11 @@ def level_up(character: Entity, times_to_level: int = 1, invisible: bool = False
         print_with_conf(f"New stats:\n{character}\n")
 
 
+def check_for_level_up(character):
+    level = character.Level
+    
+
+
 def check_for_mastery_level_up(character):
     mastery_level = character.MasteryLevel
     mastery_difficulty = jobs[character.Job]["mastery_difficulty"]
@@ -866,8 +924,6 @@ def check_for_mastery_level_up(character):
             give_mastery_level_up(character, 2)
         elif mastery_level == 0 and character.JEXP >= 20:
             give_mastery_level_up(character, 1)
-        
-
 
             
 def give_mastery_level_up(character, ML_to_be = None):
@@ -886,7 +942,6 @@ def give_mastery_level_up(character, ML_to_be = None):
     if character.MasteryLevel == 3:
         print_with_conf(f"{character.Name} has mastered the way of the {jobs[character.Job]['name']}!!!")
     
-
 
 def generate_party_member(party_level, name=""):
     # Creates a new PlayerCharacter entity object returns it  

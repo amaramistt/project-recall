@@ -565,8 +565,50 @@ def messiahs_cloak(entity_hit, entity_attacker, damage_dealt):
         gamestate.add_callback("callback_battle_finished", messiahs_cloak_use_count_reset)
         cloak.ItemUseCount += 1
         
+def ornaldos_moldy_bread(item):
+    print("PARTY\n")
+    for _ in range(len(GAME_STATE.player_party)):
+        print(f"Party Member {_ + 1}: {GAME_STATE.player_party[_].Name}")
+    print("\n\n")
+    
+    cmd = input(f"Input the numbered party member you would like to take the Complimentary. For example, '1' is {GAME_STATE.player_party[0].Name}.\n(INPUT NUM) Input anything else to go back.").strip().lower()
+    try:
+        target = int(cmd) - 1 if int(cmd) - 1 > -1 else 0
+        if target > len(GAME_STATE.player_party) - 1:
+            target = len(GAME_STATE.player_party) - 1
+        target_pc = GAME_STATE.player_party[target]
+    except ValueError:
+        return
 
+    print_with_conf(f"{target_pc.Name} holds the loaf of mold in the shape of a loaf of bread with shaky hands.")
+    print_with_conf("They think they see it twitch, even though it most definitely DID NOT MOVE because it is moldy bread.")
+    cmd = input(f"(INPUT Y/N) ...Do you want {target_pc.Name} to eat it? ").lower().strip()
+    if cmd == "y":
+        print_with_conf(f"{target_pc.Name} eats it all in one bite, to get it over with as soon as possible.")
+        print_with_conf("A faint sound that could be mistaken for a scream of pain is heard from their stomach.")
+        print_with_conf(f"{target_pc.Name} does not feel good after that.")
+        print_with_conf(f"{target_pc.Name} takes 1 damage!")
+        gamestate.deal_damage_to_target(target_pc, target_pc, 1)
+        if GAME_STATE.in_battle:
+            print_with_conf(f"{target_pc.Name} feels debilitated! All stats down!")
+            target_pc.change_stat("STR", -1)
+            target_pc.change_stat("RES", -1)
+            target_pc.change_stat("MND", -1)
+            target_pc.change_stat("AGI", -1)
+        if isinstance(item.ItemHolder, Entity):
+            item.ItemHolder.Inventory.remove(item)
+            return
+        item.ItemHolder.remove(item)
+        return
+    print_with_conf("They feel wary, and put it back in their inventory.")
+    return "dont_end_turn"
 
+def rhys_boss_dagger(entity_hit, entity_attacker, damage_dealt):
+    if entity_attacker.EquippedWeapon.Name == "Rhys's Dagger" and entity_attacker.EquippedWeapon.ItemQuality == 4:
+        chance = random.randrange(11)
+        if chance == 10:
+            print_with_conf(f"{entity_hit} is poisoned by Rhys's Dagger!")
+            entity_hit.Status == "POISONED"
 
 ##########################
 #       ITEM DATA        #
@@ -748,7 +790,6 @@ item_data = {
             },
         }),
     },
-    },
 
     
     4: { # Secret Shop Pool (only quality 4)
@@ -802,6 +843,25 @@ item_data = {
             "ItemTrigger": None,
             "ItemCallback": None,
             "ItemUseEffect": None,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 0,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
+
+        "OrnaldosMoldyBread": Item({
+            "ItemName": "Ornaldo's Moldy Bread",
+            "ItemDesc": "Bread that has lived in Ornaldo's pantry for several times your lifespan. Simply holding it makes everyone around you queasy. May or may not be sentient.",
+            "ItemType": "active",
+            "ItemSubtype": "",
+            "ItemQuality": 1,
+            "ItemTrigger": None,
+            "ItemCallback": None,
+            "ItemUseEffect": ornaldos_moldy_bread,
             "ItemStats": {
                 "MaxHP": 0,
                 "MaxMP": 0,
@@ -981,6 +1041,44 @@ item_data = {
                 "AGI": 0
             },
         }),
+
+        "RhysDagger": Item({
+            "ItemName": "Rhys's Dagger",
+            "ItemDesc": "A dagger owned by Rhys, who allied with you to see Horatius fall.",
+            "ItemType": "equip",
+            "ItemSubtype": "weapon",
+            "ItemQuality": 1,
+            "ItemTrigger": None,
+            "ItemCallback": None,
+            "ItemUseEffect": None,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 15,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 0
+            },
+        }),
+        
+        "RhysBossDagger": Item({
+            "ItemName": "Rhys's Dagger",
+            "ItemDesc": "A dagger pilfered from Rhys, who vowed to always stand in your way. The spirit of Rhys empowers its wielder and increases their strength and agility to insane levels.",
+            "ItemType": "equip",
+            "ItemSubtype": "weapon",
+            "ItemQuality": 4,
+            "ItemTrigger": "callback_enemy_is_hit",
+            "ItemCallback": rhys_boss_dagger,
+            "ItemUseEffect": None,
+            "ItemStats": {
+                "MaxHP": 0,
+                "MaxMP": 0,
+                "STR": 60,
+                "RES": 0,
+                "MND": 0,
+                "AGI": 50
+            },
+        }),
     },
 
     
@@ -1080,13 +1178,8 @@ def create_shop_stock():
 def shop():
     clear_terminal()
     stock_already_decided = False
-    if len(GAME_STATE.shop_stock) > 0:
+    if len(GAME_STATE.shop_stock) > 0 and not GAME_STATE.player_bought_something:
         stock_already_decided = True
-    if GAME_STATE.player_bought_something: # Make sure the player can only buy things from Ornaldo once per cycle
-        print_with_conf("ORNALDO) Weren't you just here a second ago?")
-        print_with_conf("ORNALDO) Nothing's changed about my stock right now, Khorynn. Come back later.")
-        return
-
 
     print_with_conf("ORNALDO) Welcome to my emporium, Khroynn! Why don't you have a look-see at my wonderful wares?")
     
@@ -1094,6 +1187,10 @@ def shop():
     if stock_already_decided: # If this is already done, skip this bit
         items_available = GAME_STATE.shop_stock
     else:
+        if GAME_STATE.player_bought_something:
+            print_with_conf("ORNALDO) Ah, but Khorynn, I have no wonderful wares. You've already bought everything I have.")
+            print_with_conf("ORNALDO) Give me some time to restock and come back later!")
+            return
         create_shop_stock()
         items_available = GAME_STATE.shop_stock
     
@@ -1104,14 +1201,27 @@ def shop():
     for item in items_available:
         numbered_item += 1
         min_cost = item.ItemQuality * 15
-        max_cost = item.ItemQuality * 20
+        max_cost = item.ItemQuality * 25
         item.ItemCost = random.randrange(min_cost, max_cost + 1)
         print(f"{numbered_item}: {item.ItemName}, costs {item.ItemCost} gold")
         if item.ItemCost < GAME_STATE.money:
             cant_buy_anything = False
     if cant_buy_anything:
-        print_with_conf("ORNALDO) Uh... I hate to say this, but you can't afford any of these. How about you, uh... come back later?")
-        print_with_conf("You leave in an awkward silence.")
+        if GAME_STATE.money == 0:
+            chance = random.randrange(51)
+            if chance == 50 or GAME_STATE.debug_mode:
+                print_with_conf("ORNALDO) Hey, Khorynn... I see you're in some financial troubles, and...")
+                print_with_conf("ORNALDO) You know, I think you need this more than I do.")
+                give_player_item(get_clone_by_name("OrnaldosMoldyBread"))
+                print_with_conf("You don't have any money. You leave the shop.")
+                return
+        chance = random.randrange(101)
+        if chance < 100:
+            print_with_conf("ORNALDO) Uh... I hate to say this, but you can't afford any of these. How about you, uh... come back later?")
+            print_with_conf("You leave in an awkward silence.")
+            return
+        print_with_conf("ORNALDO) Sorry, Khorynn. I can't give credit.")
+        print_with_conf("ORNALDO) Come back when you're a little... Mmmm, richer!")
         return
 
     print_with_conf("ORNALDO) Come on, these are wonderful deals! You couldn't get this quality anywhere else.\n")
@@ -1123,7 +1233,7 @@ def shop():
             cmd = int(cmd)
         except ValueError:
             if cmd == "back":
-                print_with_conf("ORNALDO) Aww, nothing caught your eye? Come back if you change your mind!")
+                print_with_conf("ORNALDO) Nothing caught your eye? Come back if you change your mind!")
                 return
             input("You inputted something other than a number! PLEASE only input a number!")
             continue

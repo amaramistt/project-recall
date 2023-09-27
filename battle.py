@@ -65,13 +65,15 @@ enemy_pools = {
         "encounters": [
             [entities["GelatinousKing"]],
             [entities["StoneGolem"]],
-            [entities["InsurgentMessiah"]]
+            [entities["InsurgentMessiah"]],
+            [entities["RhysBoss"]],
         ],
         
         "encounter_dialogue": [
             "An army of slimes appear from all around and merge into one before you!\nYou face down the boss of the floor; the Gelatinous King!",
             "A collection of boulders rise from the floor and take humanoid shape!\nYou face down the boss of the floor; the Stone Golem!",
-            "A man in a black robe embroidered with gold patterns stops you! \nYou face down the boss of the floor; the Insurgent Messiah!"
+            "A man in a black robe embroidered with gold patterns stops you! \nYou face down the boss of the floor; the Insurgent Messiah!",
+            "You face down the Traitor of the Prison; Rhys!"
         ]
     },
     5: { # DEBUG ENCOUNTERS WOOOOOOOOOOOOOOOOOOOOO
@@ -160,6 +162,9 @@ def run_encounter():
     enemies_spawned = []
     for enemy in GAME_STATE.enemy_party:
         enemies_spawned.append(enemy)
+        if enemy.EntityType == "BossEnemy":
+            GAME_STATE.battle_boss_logic_planted = False
+            boss = enemy
     bloodthirsty_check = None
     clear_terminal()
     
@@ -170,7 +175,10 @@ def run_encounter():
     # 4) Repeat 2/3 until turn order list is empty
     # 5) Check for flags
     # 6) Repeat until someone's dead!!!
-    
+    if GAME_STATE.battle_boss_logic_planted == False:
+        logic_to_reference = globals()[boss.BossLogic]
+        logic_to_reference(boss, enemies_spawned)
+        
     while True:
         while len(GAME_STATE.turn_order) > 0:
             actor = GAME_STATE.turn_order[0]
@@ -203,10 +211,11 @@ def run_encounter():
                     bloodthirsty_check = pc_turn_handler(bloodthirsty_entity, True)
                 elif bloodthirsty_entity.EntityType == "Enemy":
                     print_with_conf(f"{bloodthirsty_entity.Name} is bloodthirsty!")
-                    bloodthirsty_check = enemy_AI(bloodthirsty_entity)
+                    logic_to_reference = globals()[bloodthirsty_entity.AI]
+                    bloodthirsty_check = logic_to_reference(bloodthirsty_entity, enemies_spawned)
                 elif bloodthirsty_entity.EntityType == "BossEnemy":
                     print_with_conf(f"{bloodthirsty_entity.Name} is bloodthirsty!!")
-                    logic_to_reference = globals()[bloodthirsty_entity.BossLogic]
+                    logic_to_reference = globals()[bloodthirsty_entity.AI]
                     bloodthirsty_check = logic_to_reference(bloodthirsty_entity, enemies_spawned)
                 # If you go bloodthirsty *again*, keep going
                 
@@ -243,11 +252,11 @@ def run_encounter():
     
             # check if entity is an enemy
             if actor.EntityType == "Enemy":
-                # do enemy shit
-                bloodthirsty_check = enemy_AI(actor)
+                logic_to_reference = globals()[actor.AI]
+                bloodthirsty_check = logic_to_reference(bloodthirsty_entity, enemies_spawned)
     
             if actor.EntityType == "BossEnemy":
-                logic_to_reference = globals()[actor.BossLogic]
+                logic_to_reference = globals()[actor.AI]
                 bloodthirsty_check = logic_to_reference(actor, enemies_spawned)
     
             GAME_STATE.turn_order.remove(actor)
@@ -423,7 +432,50 @@ def check_if_battle_won():
     else:
         return None
 
-def enemy_AI(enemy):
+
+def status_handler(actor):
+    actor_moving = True
+        
+    elif actor.Status == "POISONED":
+        poison_damage = int(actor.MaxHP*0.0625) 
+        print_with_conf(f"{actor.Name} is poisoned! The poison deals {poison_damage} damage!")
+        gamestate.deal_damage_to_target(None, actor, poison_damage)
+        
+    elif actor.Status == "TIRED":
+        print_with_conf(f"{actor.Name} is getting tired! Their physical and mental agility decreases!")
+        actor.change_stat("AGI", -1)
+        actor.change_stat("MND", -1)
+
+    elif actor.Status == "PARALYZED":
+        chance = random.randrange(4)
+        if chance == 0:
+            print_with_conf(f"{actor.Name}'s muscles stop moving! They can't move!")
+            actor_moving = False
+            
+    elif actor.Status == "DOOMED":
+        actor.DoomCounter += 1
+        print_with_conf(f"{actor.Name}'s Doom Counter increases to {actor.DoomCounter}!")
+        if actor.DoomCounter == 5:
+            print_with_conf(f"{actor.Name} is out of time!")
+            print_with_conf(f"{actor.Name} Has Fallen!")
+            actor_moving = False
+            if actor.EntityType == "PlayerCharacter" or actor.EntityType == "Khorynn":
+                GAME_STATE.player_party.remove(actor)
+            else:
+                GAME_STATE.enemy_party.remove(actor)
+            run_callbacks("callback_entity_is_dead", entity_dead=actor, entity_attacker=actor)
+            if target.EntityType == "PlayerCharacter" or target.EntityType == "Khorynn":
+                run_callbacks("callback_pc_is_dead", entity_dead=actor, entity_attacker=actor)
+            else:
+                run_callbacks("callback_enemy_is_dead", entity_dead=actor, entity_attacker=actor)
+    
+    elif actor.Status == "MOLDED":
+        pass
+
+    return actor_moving
+
+
+def ai_random(enemy):
     bloodthirsty = None
     
     # choose a random target 
@@ -551,8 +603,6 @@ def battle_cleanup(enemies, won_battle = True):
             pc.JEXP += jexp_to_gain
             pc.MasteredJobs[pc.Job]["JOB_EXP"] += jexp_to_gain
             entity.check_for_mastery_level_up(pc)
-        GAME_STATE.xp_count += xp_to_gain
-        GAME_STATE.money += money_to_gain
         
         
     if won_battle == False:
@@ -626,10 +676,10 @@ def king_slime_death_logic(entity_dead, entity_attaker, cause_of_death):
 def king_slime(gel_king, enemies_spawned):
     bloodthirsty = None
 
-    if "king_slime_spawn_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
+    if not GAME_STATE.battle_boss_logic_planted:
         gamestate.add_callback("callback_enemy_is_hit", king_slime_spawn_phase_handler)
-    if "king_slime_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
         gamestate.add_callback("callback_enemy_is_dead", king_slime_death_logic)
+        return
 
     for player_character in GAME_STATE.player_party:
         if damage_calc(gel_king, player_character, False, False) > player_character.HP:
@@ -666,11 +716,10 @@ def stone_golem_death_logic(entity_dead, entity_attaker, cause_of_death):
         return
 
 def stone_golem(golem, enemies_spawned):
-    if "stone_golem_phase_handler" not in gamestate.get_callback_triggers_map()["callback_enemy_is_hit"]:
+    if not GAME_STATE.battle_boss_logic_planted:
         gamestate.add_callback("callback_enemy_is_hit", stone_golem_phase_handler)
-    if "stone_golem_death_logic" not in gamestate.get_callback_triggers_map()["callback_enemy_is_dead"]:
         gamestate.add_callback("callback_enemy_is_dead", stone_golem_death_logic)
-
+        return
 
     cant_see_kill = True
     for player_character in GAME_STATE.player_party:
@@ -750,6 +799,11 @@ def insurgent_shield_counterattack(attacker_action):
 
 
 def insurgent_messiah(messiah, enemies_spawned):
+    bloodthirsty = None
+    if GAME_STATE.battle_boss_logic_planted == False:
+        GAME_STATE.battle_boss_logic_planted = True
+        return
+        
     if not messiah.Phases["Summon Phase"]:
         messiah.Phases["Summon Phase"] = True
         print_with_conf(f"The Insurgent Messiah chants an ancient spell...")
@@ -789,10 +843,12 @@ def insurgent_messiah(messiah, enemies_spawned):
         print_with_conf(f"The Insurgent Messiah attacks {GAME_STATE.battle_entity_targeted.Name} with a burst of magic!!")
         damage = int(damage_calc(messiah, GAME_STATE.battle_entity_targeted, True) * 1.2)
         print_with_conf(f"{GAME_STATE.battle_entity_targeted.Name} takes {damage} points of damage!")
-        gamestate.deal_damage_to_target(messiah, GAME_STATE.battle_entity_targeted, damage)
+        bloodthirsty = gamestate.deal_damage_to_target(messiah, GAME_STATE.battle_entity_targeted, damage)
+        return bloodthirsty
 
     def messiah_aoe_attack():
         nonlocal messiah
+        nonlocal bloodthirsty
         print_with_conf(f"The Insurgent Messiah gathers their magical energy...")
         print_with_conf(f"They release it all at once and attack the entire party!!")
         for pc in GAME_STATE.player_party:
@@ -801,7 +857,9 @@ def insurgent_messiah(messiah, enemies_spawned):
             GAME_STATE.battle_entity_targeted = pc
             damage = damage_calc(messiah, GAME_STATE.battle_entity_targeted, True)
             print_with_conf(f"{pc.Name} takes {damage} damage!")
-            gamestate.deal_damage_to_target(messiah, GAME_STATE.battle_entity_targeted, damage)
+            bloodthirsty_check = gamestate.deal_damage_to_target(messiah, GAME_STATE.battle_entity_targeted, damage)
+            if bloodthirsty_check is not None:
+                bloodthirsty = bloodthirsty_check
 
     sees_kill = False
     for player_character in GAME_STATE.player_party:
@@ -818,26 +876,274 @@ def insurgent_messiah(messiah, enemies_spawned):
 
     while True:
         if GAME_STATE.battle_bloodthirsty_triggered:
-            messiah_aoe_attack()
-            break
+            bloodthirsty = messiah_aoe_attack()
+            return bloodthirsty
         if sees_kill:
-            messiah_basic_attack()
-            break
+            bloodthirsty = messiah_basic_attack()
+            return bloodthirsty
         if not debuff_applied:
-            messiah_vulnerability_curse()
+            bloodthirsty = messiah_vulnerability_curse()
             break
         if not sees_kill and not messiah.Phases["Summon Phase"]:
-            messiah_aoe_attack()
-            break 
+            bloodthirsty = messiah_aoe_attack()
+            return bloodthirsty 
         # nothing smart to do. therefore, random chance!
         chance = random.randrange(0, 2)
         if chance > 0:
-            messiah_basic_attack()
-            break
+            bloodthirsty = messiah_basic_attack()
+            return bloodthirsty
         messiah_vulnerability_curse()
-        break
+        return bloodthirsty
         
+
+def rhys_boss_phase_handler(entity_hit, entity_attacker, damage_dealt):
+    if entity_hit.EntityType != "BossEnemy" or entity_hit.Name != "Rhys":
+        return
+    rhys = entity_hit
+
+    if rhys.HP < int(rhys.MaxHP * 0.66) and not rhys.Phases["Phase 2"]:
+        rhys.HP = int(rhys.MaxHP * 0.66)
+        clear_terminal()
+        print_with_conf(f"(RHYS) Girl! Why do you fight back?! ")
+        print_with_conf(f"(RHYS) I'm just going to kill you, over and over, before you even catch sight of my lord! ")
+        print_with_conf(f"(RHYS) Learn to live in the Sanctuary like the rest of us did! ")
+        print_with_conf(f"(KHORYNN) What I'm doing will only benefit you, and all of the Lost!")
+        print_with_conf(f"(KHORYNN) You've gone mad, Rhys. Get out of my way.")
+        print_with_conf(f"(RHYS) Insolent...")
+        print_with_conf(f"(RHYS) Just give up!")
+        print_with_conf(f"Rhys's Strength and Agility rise!")
+        rhys.change_stat("STR", 1)
+        rhys.change_stat("AGI", 1)
+        rhys.Phases["Phase 2"] = True
+    if rhys.HP < int(rhys.MaxHP * 0.33) and not rhys.Phases["Phase 3"]:
+        rhys.HP = int(rhys.MaxHP * 0.33)
+        clear_terminal()
+        print_with_conf(f"(RHYS) I'm trying to save you from this struggle, Khorynn!")
+        print_with_conf(f"(RHYS) What you're attempting is an impossible task!")
+        print_with_conf(f"(RHYS) That's what I've been saying from the start, girl!")
+        print_with_conf(f"(RHYS) Stop fighting now, and you'll save yourself hundreds of years of pain!")
+        print_with_conf(f"(KHORYNN) I've done it once, Rhys. I'll do it again.")
+        print_with_conf(f"(KHORYNN) Shut up and fight.")
+        rhys.Phases["Phase 3"] = True
+    if rhys.HP < 1 and not rhys.Phases["Wounded"]:
+        rhys.HP = 1
+        clear_terminal()
+        print_with_conf(f"Rhys staggers, falling to his knees and coughing up blood.")
+        print_with_conf(f"He covers his wounds, which are undoubtably fatal, and chuckles weakly.")
+        print_with_conf(f"(RHYS) Hmph... Well done, girl. Well done.")
+        print_with_conf(f"(KHORYNN) I didn't have to do this. But you got in my way.")
+        print_with_conf(f"(RHYS) And I'll keep getting in your way... as long as you keep up with this shit.")
+        print_with_conf(f"(KHORYNN) ...")
+        rhys.Phases["Wounded"] = True
+
+
+def rhys_boss_death_logic(entity_dead, entity_attacker):
+    pass
+
+
+def rhys_boss_logic(rhys, enemies_spawned):
+    bloodthirsty = None
+    if not GAME_STATE.battle_boss_logic_planted:
+        gamestate.add_callback("callback_enemy_is_hit", rhys_boss_phase_handler)
+        gamestate.add_callback("callback_enemy_is_dead", rhys_boss_death_logic)
+        GAME_STATE.battle_boss_logic_planted = True
+        return bloodthirsty
+
+    if rhys.Phases["Wounded"]:
+        print_with_conf(f"Rhys is too wounded to move...")
+        return bloodthirsty
+        
+    sees_kill = False
+    for player_character in GAME_STATE.player_party:
+        damage = int(damage_calc(rhys, player_character, False, False))
+        if rhys.Phases["Blade Enchanted"]:
+            damage += int(damage_calc(rhys, player_character, True, False) * 0.5)
+        if damage > player_character.HP:
+            GAME_STATE.battle_entity_targeted = player_character
+            sees_kill = True
+            break
+    if not sees_kill:
+        sees_kill_with_magic = False
+        for player_character in GAME_STATE.player_party:
+            damage = int(damage_calc(rhys, player_character, True, False) * 1.5)
+            if damage > player_character.HP:
+                GAME_STATE.battle_entity_targeted = player_character
+                sees_kill_with_magic = True
+                break
+    if not sees_kill_with_magic:
+        GAME_STATE.battle_entity_targeted = random.choice(GAME_STATE.player_party)
+
+    fast_pc = None
+    for pc in GAME_STATE.player_party:
+        if pc.StatChanges["AGI"] > 0:
+            fast_pc = pc
+
     
+    def rhys_basic_attack():
+        nonlocal bloodthirsty
+        attacking_khorynn = False
+        if GAME_STATE.battle_entity_targeted.EntityType == "Khorynn":
+            attacking_khorynn = True
+
+        gamestate.run_callbacks("callback_entity_is_targeted", attacker_action="physical_attack")
+        gamestate.run_callbacks("callback_pc_is_targeted", attacker_action="physical_attack")
+        if not isinstance(GAME_STATE.battle_entity_targeted, Entity):
+            return
+            
+        print_with_conf(f"Rhys lunges forward and attacks {GAME_STATE.battle_entity_targeted.Name} with his knife!!")
+        if attacking_khorynn:
+            print_with_conf("(RHYS) Come here, girl!")
+        damage = damage_calc(rhys, GAME_STATE.battle_entity_targeted, False)
+        if rhys.Phases["Blade Enchanted"]:
+            print_with_conf("Rhys' enchanted blade deals extra damage!")
+            damage += damage_calc(rhys, GAME_STATE.battle_entity_targeted, True, False)
+        
+        print_with_conf(f"{GAME_STATE.battle_entity_targeted.Name} takes {damage} damage!")
+        bloodthirsty = gamestate.deal_damage_to_target(rhys, GAME_STATE.battle_entity_targeted, damage)
+        rhys.Phases["Blade Enchanted"] = False
+        return bloodthirsty
+
+    def rhys_magic_attack():
+        nonlocal bloodthirsty
+        if rhys.MP < 50:
+            print_with_conf(f"Rhys tried to use a magic attack, but he's out of MP!")
+        attacking_khorynn = False
+        if GAME_STATE.battle_entity_targeted.EntityType == "Khorynn":
+            attacking_khorynn = True
+
+        gamestate.run_callbacks("callback_entity_is_targeted", attacker_action="magic_attack")
+        gamestate.run_callbacks("callback_pc_is_targeted", attacker_action="magic_attack")
+
+        if not isinstance(GAME_STATE.battle_entity_targeted, Entity):
+            return
+            
+        print_with_conf(f"Rhys forms an orb of pure darkness in his hand and throws it at {GAME_STATE.battle_entity_targeted.Name}!!")
+        damage = int(damage_calc(rhys, player_character, True, False) * 1.5)
+        print_with_conf(f"{GAME_STATE.battle_entity_targeted.Name} takes {damage} damage!")
+        bloodthirsty = gamestate.deal_damage_to_target(rhys, GAME_STATE.battle_entity_targeted, damage)
+        return bloodthirsty
+
+    def rhys_enchant_blade():
+        if rhys.MP < 25:
+            print_with_conf("Rhys tries to enchant his blade, but he's run out of MP!")
+            return
+        
+        print_with_conf("Rhys reaches to his blade, closing his eyes and focusing...")
+        print_with_conf("His blade is enchanted with dark energy!")
+        rhys.MP -= 25
+        rhys.Phases["Blade Enchanted"] = True
+
+    def death_rush():
+        nonlocal bloodthirsty
+        attacking_khorynn = False
+        if GAME_STATE.battle_entity_targeted.EntityType == "Khorynn":
+            attacking_khorynn = True
+
+        gamestate.run_callbacks("callback_entity_is_targeted", attacker_action="physical_attack")
+        gamestate.run_callbacks("callback_pc_is_targeted", attacker_action="physical_attack")
+        if not isinstance(GAME_STATE.battle_entity_targeted, Entity):
+            return
+
+        print_with_conf(f"Rhys races towards {GAME_STATE.battle_entity_targeted.Name}, and repeatedly slashes at them!!")
+        if rhys.Phases["Blade Enchanted"]:
+            print_with_conf("Rhys' enchanted blade deals extra damage!")
+            
+        for i in range(3):
+            damage = int(damage_calc(rhys, GAME_STATE.battle_entity_targeted, False) * 0.8)
+            if rhys.Phases["Blade Enchanted"]:
+                damage += int(damage_calc(rhys, GAME_STATE.battle_entity_targeted, True, False) * 0.3)
+            print_with_conf(f"{GAME_STATE.battle_entity_targeted.Name} takes {damage} damage!")
+            bloodthirsty_check = gamestate.deal_damage_to_target(rhys, GAME_STATE.battle_entity_targeted, damage)
+            if bloodthirsty_check is not None:
+                bloodthirsty = bloodthirsty_check
+        rhys.Phases["Blade Enchanted"] = False
+        return bloodthirsty
+            
+    def the_hobbler():
+        nonlocal bloodthirsty
+        attacking_khorynn = False
+        if GAME_STATE.battle_entity_targeted.EntityType == "Khorynn":
+            attacking_khorynn = True
+
+        gamestate.run_callbacks("callback_entity_is_targeted", attacker_action="physical_attack")
+        gamestate.run_callbacks("callback_pc_is_targeted", attacker_action="physical_attack")
+        if not isinstance(GAME_STATE.battle_entity_targeted, Entity):
+            return
+
+        print_with_conf(f"Rhys dashes behind {GAME_STATE.battle_entity_targeted.Name} and slashes at the muscle behind their knees!!")
+        damage = int(damage_calc(rhys, GAME_STATE.battle_entity_targeted, False) * 0.8)
+        if rhys.Phases["Blade Enchanted"]:
+            damage += int(damage_calc(rhys, GAME_STATE.battle_entity_targeted, True, False) * 0.3)
+            print_with_conf("Rhys' enchanted blade deals extra damage!")
+        print_with_conf(f"{GAME_STATE.battle_entity_targeted.Name} takes {damage} damage!")
+        bloodthirsty = gamestate.deal_damage_to_target(rhys, GAME_STATE.battle_entity_targeted, damage)
+        print_with_conf(f"{GAME_STATE.battle_entity_targeted.Name}'s joints are damaged! Agility lowered to the minimum!")
+        GAME_STATE.battle_entity_targeted.change_stat("AGI", -4)
+        rhys.Phases["Blade Enchanted"] = False
+        return bloodthirsty
+        
+
+    if GAME_STATE.battle_bloodthirsty_triggered:
+        GAME_STATE.battle_entity_targeted = GAME_STATE.khorynn
+        if not rhys.Phases["Blade Enchanted"]:
+            rhys_enchant_blade()
+        bloodthirsty = death_rush()
+        return bloodthirsty
+        
+    if not rhys.Phases["Phase 2"]:
+        if not rhys.Phases["Blade Enchanted"]:
+            enchant_chance = random.choice(["yea", "nah", "mmmmm, no thank you."])
+            if enchant_chance == "yea":
+                rhys_enchant_blade()
+        if sees_kill:
+            bloodthirsty = rhys_basic_attack()
+            return bloodthirsty
+        if sees_kill_with_magic:
+            bloodthirsty = rhys_magic_attack()
+            return bloodthirsty
+        bloodthirsty = rhys_basic_attack()
+        return bloodthirsty
+        
+    if rhys.Phases["Phase 2"] and not rhys.Phases["Phase 3"]:
+        if not rhys.Phases["Blade Enchanted"]:
+            enchant_chance = random.choice(["yea", "nah"])
+            if enchant_chance == "yea":
+                rhys_enchant_blade()
+        if sees_kill:
+            bloodthirsty = rhys_basic_attack()
+            return bloodthirsty
+        if sees_kill_with_magic:
+            bloodthirsty = rhys_magic_attack()
+            return bloodthirsty
+        if fast_pc is not None:
+            GAME_STATE.battle_entity_targeted = fast_pc
+            bloodthirsty = the_hobbler()
+            return bloodthirsty
+        random_fucking_chance = random.choice([rhys_basic_attack, the_hobbler])
+        bloodthirsty = random_fucking_chance()
+        return bloodthirsty
+    if rhys.Phases["Phase 3"]:
+        if not rhys.Phases["Blade Enchanted"]:
+            rhys_enchant_blade()
+        if sees_kill:
+            bloodthirsty = rhys_basic_attack()
+            return bloodthirsty
+        if sees_kill_with_magic:
+            bloodthirsty = rhys_magic_attack()
+            return bloodthirsty
+        if fast_pc is not None:
+            GAME_STATE.battle_entity_targeted = fast_pc
+            bloodthirsty = the_hobbler()
+            return bloodthirsty
+        random_fucking_chance = random.choice([rhys_basic_attack, the_hobbler])
+        bloodthirsty = random_fucking_chance()
+        return bloodthirsty
+            
+            
+            
+        
+        
+        
 
 
 #####################################

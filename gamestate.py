@@ -10,8 +10,23 @@ CLEAR = 'cls' if os.name == 'nt' else 'clear'
 class GameState(object):
     def __init__(self):
         self.reset()
+        
 
     def reset(self):
+        self.reset_battle_data()
+        self.reset_run_data()
+        self.message_log = []
+        self.debug_mode = False
+
+    def reset_battle_data():
+        self.in_battle = False
+        self.turn_order = []
+        self.battle_entity_targeted = None
+        self.battle_entity_attacking = None
+        self.battle_bloodthirsty_triggered = False
+        self.battle_boss_logic_planted = None
+
+    def reset_run_data():
         self.player_party = []
         self.enemy_party = []
         self.bagged_items = []
@@ -20,18 +35,10 @@ class GameState(object):
         self.floor = 0
         self.money = 0
         self.xp_count = 0
-        self.in_battle = False
-        self.turn_order = []
-        self.battle_entity_targeted = None
-        self.battle_entity_attacking = None
-        self.battle_bloodthirsty_triggered = False
-        self.message_log = []
-        self.debug_mode = False
         self.player_changed_jobs = False
         self.player_got_new_party_member = False
         self.player_bought_something = False
         self.shop_stock = []
-
 
 GAME_STATE = GameState()
 
@@ -114,45 +121,6 @@ def run_callbacks(trigger, **kwargs):
         callback(**callback_args)
 
 
-def print_tutorial():
-    print("Basic Combat Tutorial")
-    print_with_conf("In this tutorial, you will learn the basics of combat.", True)
-    clear_terminal()
-    print("STATISTICS")
-    print_with_conf("Your characters' statistics are the backbone of combat. There are several stats that directly affect the effectiveness of your units.", True)
-    print_with_conf("HP or Health Points: How much damage one can take before dying.", True)
-    print_with_conf("MP or Magic Points: Spells and Abilities use MP to activate.", True)
-    print_with_conf("STR or Strength: How effective one is at attacking directly with a weapon.", True)
-    print_with_conf("RES or Resilience: How effective one is at taking hits.", True)
-    print_with_conf("MND or Mind: How effective one is at using magic and resisting urges.", True)
-    print_with_conf("AGI or Agility: How fast one is.", True)
-    clear_terminal()
-    print("JOBS")
-    print_with_conf("Jobs affect a character's stats and learnable abilities.", True)
-    print_with_conf("There will be more jobs with more in-depth mechanics later, but these are the jobs available to you currently.", True)
-    print_with_conf("Warrior: Big, strong, tanky unit that takes hits and deals damage. However, they're a little slow, both literally and figuratively.", True)
-    print_with_conf("Mage: Absolute powerhouses that die if you look at them too hard. Abuse their powerful magic and keep them safe!", True)
-    print_with_conf("Just A Guy: I don't know how they got here, they are literally just normal humans. Extremely weak.", True)
-    print_with_conf("Thief: Generalists with exceptional speed. Gets things done and gets things done before anyone else.", True)
-    print_with_conf("Monk: Fast, decently bulky physical fighters that don't need weapons to kill. Say your prayers.", True)
-    print_with_conf("Priest: Squishy backliners that support their allies with healing and buffs. Keep them safe and they'll return the favor!", True)
-    clear_terminal()
-    print("COMMANDS")
-    print_with_conf("When it is a player characters' turn in battle, you will be asked to input a command.", True)
-    print_with_conf("A list of available commands will follow.", True)
-    print_with_conf("Attack: Initiate a basic attack on a selected enemy.", True)
-    print_with_conf("Ability: Initiates the process of using abilities. Most of them use MP!", True)
-    print_with_conf("Pass: Passes your turn. Your character will not act that turn.", True)
-    print_with_conf("Item: Shows the inventory of your character and allows for the use of active items!", True)
-    clear_terminal()
-    print("BLOODTHIRSTINESS")
-    print_with_conf("Whenever a character kills an opposing character, they immediately take another turn.", True)
-    print_with_conf("In the extra turn, you may *only* attack, with either a basic attack or with a spell.", True)
-    print_with_conf("Nobody may take two bloodthirsty turns in a row.", True)
-    clear_terminal()
-    print_with_conf("More to come in the future! Good luck!", True)
-    clear_terminal()
-
 def begin_run_handler():
     clear_terminal()
     if not GAME_STATE.debug_mode:
@@ -192,7 +160,7 @@ def title_screen():
         run_began = begin_run_handler()
         return run_began
     elif cmd == "tutorial":
-        print_tutorial()
+        load_cutscene(1)
         return None
     elif cmd == "back":
         return None
@@ -201,7 +169,7 @@ def title_screen():
         GAME_STATE.debug_mode = True
         return begin_run_handler()
     else:
-        print_with_conf("Invalid print_with_conf.", True)
+        print_with_conf("Invalid input.", True)
         return None
 
 
@@ -252,15 +220,17 @@ def rest_time():
 
 def load_cutscene(cutscene_ID):
     clear_terminal()
-    with open(f"data/scenes/{cutscene_ID}.sdt") as file:
+    with open(f"data/scenes/CUTSCENE_{cutscene_ID}.sdt") as file:
         for line in file:
-            if "CMD_CLEAR" in line:
-                input(f"'CMD_CLEAR' found in line: {line}")
-                clear_terminal()
-            else:
-                input("not clearing")
-                print_with_conf(f"{line}\033[A")
-
+            for char in line:
+                if char == "/":
+                    print_with_conf()
+                elif char == "|":
+                    print_with_conf()
+                    clear_terminal()
+                else:
+                    print(f"{char}", end="")
+    
 def menu():
     clear_terminal()
     print("PARTY\n")
@@ -389,7 +359,7 @@ def move_item_menu(chosen_item, inventory = "bag"):
     else:
         return    
 
-def print_with_conf(message, from_menu: bool = False):
+def print_with_conf(message = "", from_menu: bool = False):
     # Should replace every instance of print_with_conf() used to control the pace of the game
     # Allows access to the menu at any time, which means you can KNOW YOUR STATS!
     confirmed = False
@@ -531,15 +501,17 @@ def debug_menu():
 
 def deal_damage_to_target(attacker, target, damage):
     bloodthirsty = None
+
     target.HP -= damage
     if target.HP < 0:
         target.HP = 0
 
-    run_callbacks("callback_entity_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
-    if target.EntityType == "Khorynn" or target.EntityType == "PlayerCharacter":
-        run_callbacks("callback_pc_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
-    else:
-        run_callbacks("callback_enemy_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+    if attacker is not None:
+        run_callbacks("callback_entity_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+        if target.EntityType == "Khorynn" or target.EntityType == "PlayerCharacter":
+            run_callbacks("callback_pc_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
+        else:
+            run_callbacks("callback_enemy_is_hit", entity_hit=target, entity_attacker=attacker, damage_dealt=damage)
     
     if target.EntityType == "PlayerCharacter":
         print_with_conf(f"{target.Name} is at {target.HP}/{target.get_max_hp()} HP!")
@@ -551,6 +523,10 @@ def deal_damage_to_target(attacker, target, damage):
             GAME_STATE.player_party.remove(target)
         else:
             GAME_STATE.enemy_party.remove(target)
-        run_callbacks("callback_entity_is_dead", entity_dead=target, entity_attacker=attacker)
-        run_callbacks("callback_pc_is_dead", entity_dead=target, entity_attacker=attacker)
+        if attacker is not None:
+            run_callbacks("callback_entity_is_dead", entity_dead=target, entity_attacker=attacker)
+            if target.EntityType == "PlayerCharacter" or target.EntityType == "Khorynn":
+                run_callbacks("callback_pc_is_dead", entity_dead=target, entity_attacker=attacker)
+            else:
+                run_callbacks("callback_enemy_is_dead", entity_dead=target, entity_attacker=attacker)
     return bloodthirsty
